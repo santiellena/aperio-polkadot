@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useChainStore } from "../store/chainStore";
 import { devAccounts } from "../hooks/useAccount";
 import { getClient } from "../hooks/useChain";
@@ -20,6 +20,11 @@ export default function PalletPage() {
   const [loading, setLoading] = useState(false);
 
   const account = devAccounts[selectedAccount];
+
+  // Load claims on mount
+  useEffect(() => {
+    loadClaims();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function getApi() {
     const client = getClient(wsUrl);

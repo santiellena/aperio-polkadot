@@ -1,4 +1,4 @@
-import { useState, useCallback, type ReactNode } from "react";
+import { useState, useCallback, useEffect, type ReactNode } from "react";
 import { type Address } from "viem";
 import {
   proofOfExistenceAbi,
@@ -49,6 +49,13 @@ export default function ContractProofOfExistencePage({
   const [claims, setClaims] = useState<Claim[]>([]);
   const [txStatus, setTxStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Load claims on mount when contract address is available
+  useEffect(() => {
+    if (contractAddress) {
+      loadClaims();
+    }
+  }, [contractAddress]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function saveAddress(address: string) {
     setContractAddress(address);
