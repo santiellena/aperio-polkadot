@@ -1,6 +1,7 @@
 use crate::commands::{hash_input, resolve_substrate_signer};
 use clap::Subcommand;
 use subxt::ext::scale_value;
+use subxt::utils::AccountId32;
 use subxt::OnlineClient;
 use subxt::PolkadotConfig;
 
@@ -36,6 +37,42 @@ pub enum PalletAction {
     },
     /// List all claims stored in the pallet
     ListClaims,
+}
+
+/// Extract (owner_ss58, block_number) from a dynamic claim Value (tuple of AccountId, u32).
+fn format_claim<T: Clone>(value: &scale_value::Value<T>) -> (String, String) {
+    if let scale_value::ValueDef::Composite(scale_value::Composite::Unnamed(ref fields)) = value.value {
+        let owner = fields
+            .first()
+            .and_then(|f| {
+                // AccountId is encoded as 32 bytes
+                if let scale_value::ValueDef::Composite(scale_value::Composite::Unnamed(ref bytes)) = f.value {
+                    let raw: Vec<u8> = bytes
+                        .iter()
+                        .filter_map(|b| {
+                            if let scale_value::ValueDef::Primitive(scale_value::Primitive::U128(n)) = &b.value {
+                                Some(*n as u8)
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    if raw.len() == 32 {
+                        let account = AccountId32::from(<[u8; 32]>::try_from(raw.as_slice()).unwrap());
+                        return Some(account.to_string());
+                    }
+                }
+                None
+            })
+            .unwrap_or_else(|| format!("{}", fields.first().map(|f| format!("{f}")).unwrap_or_default()));
+        let block = fields
+            .get(1)
+            .map(|f| format!("{f}"))
+            .unwrap_or_else(|| "?".to_string());
+        (owner, block)
+    } else {
+        (format!("{value}"), "?".to_string())
+    }
 }
 
 fn parse_hash(hex: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
@@ -119,9 +156,11 @@ pub async fn run(action: PalletAction, url: &str) -> Result<(), Box<dyn std::err
             match result {
                 Some(value) => {
                     let v = value.to_value()?;
+                    let (owner, block) = format_claim(&v);
                     println!("Claim found:");
                     println!("  Hash:  {hash}");
-                    println!("  Data:  {v}");
+                    println!("  Owner: {owner}");
+                    println!("  Block: {block}");
                 }
                 None => println!("No claim found for this hash"),
             }
@@ -147,27 +186,7 @@ pub async fn run(action: PalletAction, url: &str) -> Result<(), Box<dyn std::err
                 let key_len = kv.key_bytes.len();
                 let hash = format!("0x{}", hex::encode(&kv.key_bytes[key_len - 32..]));
                 let value = kv.value.to_value()?;
-
-                // Extract owner and block from the tuple value
-                let (owner, block) = if let scale_value::Value {
-                    value: scale_value::ValueDef::Composite(
-                        scale_value::Composite::Unnamed(ref fields),
-                    ),
-                    ..
-                } = value
-                {
-                    let owner_str = fields
-                        .first()
-                        .map(|f| format!("{f}"))
-                        .unwrap_or_else(|| "?".to_string());
-                    let block_str = fields
-                        .get(1)
-                        .map(|f| format!("{f}"))
-                        .unwrap_or_else(|| "?".to_string());
-                    (owner_str, block_str)
-                } else {
-                    (format!("{value}"), "?".to_string())
-                };
+                let (owner, block) = format_claim(&value);
 
                 println!("{:<68} {:<50} {}", hash, owner, block);
                 count += 1;
