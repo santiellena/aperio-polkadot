@@ -5,10 +5,11 @@
   "scripts": {
     "compile": "npx hardhat compile",
     "test": "npx hardhat test",
-    "deploy:local": "npx hardhat ignition deploy ./ignition/modules/Counter.js --network localNode",
-    "deploy:testnet": "npx hardhat ignition deploy ./ignition/modules/Counter.js --network polkadotTestnet"
+    "deploy:local": "npx hardhat run scripts/deploy.ts --network localNode",
+    "deploy:testnet": "npx hardhat run scripts/deploy.ts --network polkadotTestnet"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@parity/hardhat-polkadot": "0.2.7",
     "@parity/resolc": "1.0.0"
   }

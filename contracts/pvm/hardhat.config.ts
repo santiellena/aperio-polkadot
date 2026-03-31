@@ -1,4 +1,5 @@
 import type { HardhatUserConfig } from "hardhat/config";
+import "@nomicfoundation/hardhat-toolbox";
 import "@parity/hardhat-polkadot";
 import { vars } from "hardhat/config";
 
