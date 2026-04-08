@@ -68,28 +68,18 @@ does not appear in `rpc_methods`.
 in the dev path.  Until this is merged and released, statement store RPCs are
 **unavailable in dev mode**.
 
-## Problem 2 — No `statement_dump` RPC
+## Problem 2 — No `statement_dump` RPC (RESOLVED)
 
-**Symptom:** CLI `chain statement-dump` and web Statement Store viewer page return
-"Method not found".
+**Status:** Fixed.  `statement_dump` is available in the polkadot-omni-node
+1.21.3 binary (stable2512-3) when the statement store is enabled.  The CLI
+`chain statement-dump` and the web Statement Store viewer page both use it
+successfully.
 
-**Root cause:** `statement_dump` is not part of the `StatementApi` trait in
-`sc-rpc-api` at the SDK version we use (stable2512-3).  The trait
-(`substrate/client/rpc-api/src/statement/mod.rs`) only defines:
-
-| Method | Kind | Description |
-|--------|------|-------------|
-| `statement_submit` | call | Submit a SCALE-encoded statement |
-| `statement_subscribeStatement` | subscription | Stream matching statements (existing + new) |
-
-**Fix options:**
-1. **Use the subscription API** — call `statement_subscribeStatement` with
-   `TopicFilter::Any` over WebSocket, collect the initial batch (indicated by the
-   `remaining` field), then close the subscription.  This is the supported way to
-   list all statements.
-2. **Wait for SDK upgrade** — a newer SDK branch adds `statement_dump` and other
-   query methods (`statement_broadcasts`, `statement_posted`, `statement_remove`).
-   Once the project upgrades, the simpler HTTP POST approach will work.
+**Previous issue:** Earlier testing with mismatched binary versions (e.g.,
+`polkadot` 1.15.0 relay + `polkadot-omni-node` 1.21.3 collator) caused the
+parachain to stall, making it appear that the RPC was unavailable.  Ensuring
+all binaries are from the same SDK release (stable2512-3 / v1.21.3) resolved
+this.
 
 ## Problem 3 — Solo node without dev mode does not produce blocks
 

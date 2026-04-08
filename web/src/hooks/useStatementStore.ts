@@ -88,7 +88,7 @@ function wsToHttp(wsUrl: string): string {
 }
 
 /**
- * Check if the node exposes the statement_submit RPC method.
+ * Check if the node exposes the Statement Store RPC methods.
  */
 export async function checkStatementStoreAvailable(wsUrl: string): Promise<boolean> {
 	const httpUrl = wsToHttp(wsUrl);
@@ -105,7 +105,7 @@ export async function checkStatementStoreAvailable(wsUrl: string): Promise<boole
 		});
 		const result = await response.json();
 		const methods: string[] = result?.result?.methods ?? [];
-		return methods.includes("statement_submit");
+		return methods.includes("statement_submit") && methods.includes("statement_dump");
 	} catch {
 		return false;
 	}
@@ -269,100 +269,32 @@ function decodeStatement(encoded: Uint8Array): Omit<DecodedStatement, "hash"> {
 }
 
 /**
- * Fetch all statements from the node via the statement_subscribeStatement
- * JSON-RPC subscription (the only query method in stable2512-3).
- *
- * Opens a WebSocket, subscribes with TopicFilter::Any, collects the initial
- * batch (batches arrive until `remaining` is 0 or absent), then closes.
+ * Fetch all statements from the node via the statement_dump JSON-RPC method.
+ * Returns hex-encoded SCALE statements which are decoded client-side.
  */
-export function fetchStatements(wsUrl: string): Promise<DecodedStatement[]> {
-	return new Promise((resolve, reject) => {
-		let ws: WebSocket;
-		try {
-			ws = new WebSocket(wsUrl);
-		} catch (e) {
-			reject(new Error(`Failed to connect: ${e}`));
-			return;
-		}
+export async function fetchStatements(wsUrl: string): Promise<DecodedStatement[]> {
+	const httpUrl = wsToHttp(wsUrl);
+	const response = await fetch(httpUrl, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			jsonrpc: "2.0",
+			id: 1,
+			method: "statement_dump",
+			params: [],
+		}),
+	});
 
-		const statements: DecodedStatement[] = [];
-		let subscriptionId: string | null = null;
-		const timeout = setTimeout(() => {
-			ws.close();
-			// Resolve with whatever we collected so far rather than failing
-			resolve(statements);
-		}, 10_000);
+	const result = await response.json();
+	if (result.error) {
+		throw new Error(result.error.message);
+	}
 
-		ws.onopen = () => {
-			// TopicFilter::Any is the first SCALE enum variant — JSON representation: "Any"
-			ws.send(
-				JSON.stringify({
-					jsonrpc: "2.0",
-					id: 1,
-					method: "statement_subscribeStatement",
-					params: ["Any"],
-				}),
-			);
-		};
-
-		ws.onmessage = (event) => {
-			const msg = JSON.parse(event.data);
-
-			// Subscription confirmation — save the subscription ID
-			if (msg.id === 1) {
-				if (msg.error) {
-					clearTimeout(timeout);
-					ws.close();
-					reject(new Error(msg.error.message));
-					return;
-				}
-				subscriptionId = msg.result;
-				return;
-			}
-
-			// Subscription notification
-			if (msg.method === "statement_statement" && msg.params?.result) {
-				const evt = msg.params.result;
-				if (evt.event === "newStatements" && evt.data) {
-					const batch: string[] = evt.data.statements ?? [];
-					for (const hex of batch) {
-						const bytes = hexToBytes(hex);
-						const hash = "0x" + bytesToHex(blake2b(bytes, undefined, 32));
-						const decoded = decodeStatement(bytes);
-						statements.push({ hash, ...decoded });
-					}
-
-					// remaining === 0 or absent means initial dump is complete
-					const remaining = evt.data.remaining;
-					if (remaining === undefined || remaining === null || remaining === 0) {
-						clearTimeout(timeout);
-						// Unsubscribe and close
-						if (subscriptionId) {
-							ws.send(
-								JSON.stringify({
-									jsonrpc: "2.0",
-									id: 2,
-									method: "statement_unsubscribeStatement",
-									params: [subscriptionId],
-								}),
-							);
-						}
-						ws.close();
-						resolve(statements);
-					}
-				}
-			}
-		};
-
-		ws.onerror = () => {
-			clearTimeout(timeout);
-			reject(new Error("WebSocket connection failed"));
-		};
-
-		ws.onclose = () => {
-			clearTimeout(timeout);
-			// If we haven't resolved yet, resolve with what we have
-			resolve(statements);
-		};
+	const encoded: string[] = result.result ?? [];
+	return encoded.map((hex) => {
+		const bytes = hexToBytes(hex);
+		const hash = "0x" + bytesToHex(blake2b(bytes, undefined, 32));
+		const decoded = decodeStatement(bytes);
+		return { hash, ...decoded };
 	});
 }
