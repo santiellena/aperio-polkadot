@@ -7,6 +7,10 @@ interface Props {
 	showUploadToggle?: boolean;
 	uploadToIpfs?: boolean;
 	onUploadToggle?: (enabled: boolean) => void;
+	showStatementStoreToggle?: boolean;
+	uploadToStatementStore?: boolean;
+	onStatementStoreToggle?: (enabled: boolean) => void;
+	statementStoreDisabled?: boolean;
 }
 
 export default function FileDropZone({
@@ -15,6 +19,10 @@ export default function FileDropZone({
 	showUploadToggle,
 	uploadToIpfs,
 	onUploadToggle,
+	showStatementStoreToggle,
+	uploadToStatementStore,
+	onStatementStoreToggle,
+	statementStoreDisabled,
 }: Props) {
 	const [dragging, setDragging] = useState(false);
 	const [fileName, setFileName] = useState<string | null>(null);
@@ -95,6 +103,25 @@ export default function FileDropZone({
 					>
 						— requires authorization, expires ~7 days
 					</a>
+				</label>
+			)}
+			{showStatementStoreToggle && (
+				<label
+					className={`flex items-center gap-2 text-sm cursor-pointer ${statementStoreDisabled ? "text-gray-600" : "text-gray-400"}`}
+				>
+					<input
+						type="checkbox"
+						checked={uploadToStatementStore ?? false}
+						onChange={(e) => onStatementStoreToggle?.(e.target.checked)}
+						disabled={statementStoreDisabled}
+						className="rounded border-gray-600"
+					/>
+					Submit file to Statement Store
+					<span className="text-gray-600 text-xs">
+						{statementStoreDisabled
+							? "— not available (node lacks statement_submit RPC)"
+							: "— propagates to connected nodes, short-term"}
+					</span>
 				</label>
 			)}
 		</div>

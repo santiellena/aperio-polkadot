@@ -37,6 +37,33 @@ nvm use || nvm install
 
 The repo root includes `.nvmrc`, and the JavaScript projects declare `engines.node` / `engines.npm`, so package managers and editors can surface version mismatches early.
 
+### Polkadot Relay Chain Binary
+
+The local relay chain is started through `zombienet`, which launches the `polkadot` binary. Use the version matching the SDK release (stable2512-3).
+
+Download the prebuilt binary for your platform from:
+
+https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-stable2512-3
+
+**macOS (Apple Silicon):**
+```bash
+curl -L https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512-3/polkadot-aarch64-apple-darwin -o polkadot
+chmod +x polkadot
+sudo mv polkadot /usr/local/bin/
+```
+
+**Linux (x86_64):**
+```bash
+curl -L https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512-3/polkadot -o polkadot
+chmod +x polkadot
+sudo mv polkadot /usr/local/bin/
+```
+
+**Build from source:**
+```bash
+cargo install --git https://github.com/paritytech/polkadot-sdk --tag polkadot-stable2512-3 polkadot --locked
+```
+
 ### Polkadot Omni Node
 
 The local dev chain runs on `polkadot-omni-node`. **You must use the version matching the SDK release (stable2512-3).**
@@ -59,6 +86,11 @@ chmod +x polkadot-omni-node
 sudo mv polkadot-omni-node /usr/local/bin/
 ```
 
+**Build from source:**
+```bash
+cargo install --git https://github.com/paritytech/polkadot-sdk --tag polkadot-stable2512-3 polkadot-omni-node --locked
+```
+
 ### Ethereum RPC Adapter (eth-rpc)
 
 Bridges Ethereum JSON-RPC (port 8545) to the Substrate node, enabling Hardhat/ethers.js/MetaMask to interact with pallet-revive contracts.
@@ -79,6 +111,11 @@ chmod +x eth-rpc
 sudo mv eth-rpc /usr/local/bin/
 ```
 
+**Build from source:**
+```bash
+cargo install --git https://github.com/paritytech/polkadot-sdk --tag polkadot-stable2512-3 pallet-revive-eth-rpc --locked
+```
+
 Verify:
 ```bash
 eth-rpc --version
@@ -87,6 +124,9 @@ eth-rpc --version
 
 Verify the version:
 ```bash
+polkadot --version
+# Should output: polkadot 1.21.3-...
+
 polkadot-omni-node --version
 # Should output: polkadot-omni-node 1.21.3-...
 ```
@@ -99,6 +139,22 @@ Used to generate the chain specification from the runtime WASM.
 
 ```bash
 cargo install staging-chain-spec-builder
+```
+
+### Zombienet
+
+The local dev scripts use `zombienet` to start the relay-chain + collator topology on fixed local ports.
+
+One common install path is:
+
+```bash
+npm install -g @zombienet/cli
+```
+
+Verify:
+
+```bash
+zombienet version
 ```
 
 ### Solidity Tooling (for smart contracts)
@@ -197,7 +253,7 @@ The repo keeps `web/src/config/deployments.ts` as a checked-in stub so the front
 ./scripts/start-all.sh
 ```
 
-This builds the runtime, generates a chain spec, starts the omni-node and eth-rpc adapter, compiles and deploys both contracts, and starts the frontend — all in one command.
+This builds the runtime, generates a chain spec, starts the local Zombienet relay-chain + collator network, starts the eth-rpc adapter, compiles and deploys both contracts, and starts the frontend — all in one command.
 
 - **Substrate RPC**: `ws://127.0.0.1:9944`
 - **Ethereum RPC**: `http://127.0.0.1:8545` (via eth-rpc adapter)
@@ -208,17 +264,22 @@ Press Ctrl+C to stop everything.
 ### Running Components Individually
 
 ```bash
-# Node only (no contracts, no frontend)
+# Lightweight solo node only (no contracts, no frontend)
 ./scripts/start-dev.sh
 
-# Node + compile and deploy contracts
-./scripts/start-dev-with-contracts.sh
+# Relay-backed network only
+./scripts/start-local.sh
 
 # Frontend (requires node already running)
 ./scripts/start-frontend.sh
 ```
 
 The Ethereum RPC endpoint is compatible with MetaMask, Hardhat, ethers.js, and all standard Ethereum tooling.
+
+The repo ships two local modes:
+
+- `start-dev.sh` uses `--dev-block-time 3000` for the fastest solo-node workflow. On `polkadot-sdk stable2512-3`, omni-node dev mode does **not** register Statement Store RPCs.
+- `start-all.sh` and `start-local.sh` use Zombienet (relay chain + collator) when you need the full feature set, including Statement Store.
 
 ### CLI
 
@@ -279,8 +340,10 @@ The chain spec is missing or empty. Regenerate it:
 ```bash
 chain-spec-builder \
     -c blockchain/chain_spec.json \
+    --chain-name "Polkadot Stack Template" \
+    --chain-id "polkadot-stack-template" \
     create -t development \
-    --relay-chain paseo --para-id 1000 \
+    --relay-chain rococo-local --para-id 1000 \
     --runtime target/release/wbuild/stack-template-runtime/stack_template_runtime.compact.compressed.wasm \
     named-preset development
 ```
@@ -296,6 +359,19 @@ The `[patch.crates-io]` section in `Cargo.toml` pins `pallet-revive-proc-macro` 
 ### TypeScript moduleResolution error in Hardhat
 
 Each contract directory has a `tsconfig.json` that avoids the TypeScript 7.0 deprecation. Make sure you're using the `tsconfig.json` in the contract directory, not a global one.
+
+### Statement Store RPCs not available
+
+In polkadot-sdk stable2512-3, `--enable-statement-store` is silently ignored in dev mode (`--dev` or `--dev-block-time`). The dev code path returns early before the statement store configuration is consumed. Use `./scripts/start-all.sh` or `./scripts/start-local.sh` instead — those run a relay chain + collator where the statement store works correctly.
+
+### Parachain stalls at block 0 on Zombienet
+
+All binaries (`polkadot`, `polkadot-omni-node`, `eth-rpc`) must be from the same SDK release. A version mismatch (e.g., `polkadot` 1.15.0 with `polkadot-omni-node` 1.21.3) causes the collator to fail to advertise collations to relay chain validators. Verify with:
+```bash
+polkadot --version
+polkadot-omni-node --version
+# Both should show 1.21.3
+```
 
 ### Frontend builds but uses stale chain types
 

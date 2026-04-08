@@ -33,3 +33,18 @@ export const devAccounts: DevAccount[] = [
 	createDevAccount("Bob", "//Bob"),
 	createDevAccount("Charlie", "//Charlie"),
 ];
+
+const devPaths = ["//Alice", "//Bob", "//Charlie"];
+
+/**
+ * Get the raw sr25519 keypair for a dev account by index.
+ * Returns publicKey and sign function for use outside of PAPI transactions
+ * (e.g., signing Statement Store statements).
+ */
+export function getDevKeypair(index: number): {
+	publicKey: Uint8Array;
+	sign: (message: Uint8Array) => Uint8Array;
+} {
+	const keypair = derive(devPaths[index]);
+	return { publicKey: keypair.publicKey, sign: keypair.sign };
+}

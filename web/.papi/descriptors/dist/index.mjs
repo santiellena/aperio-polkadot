@@ -14,27 +14,27 @@ var toBinary = (base64) => {
 };
 
 // .papi/descriptors/src/stack_template.ts
-var descriptorValues = import("./descriptors-WAHLXGW2.mjs").then((module) => module["Stack_template"]);
-var metadataTypes = import("./metadataTypes-6KBBW7VV.mjs").then(
+var descriptorValues = import("./descriptors-WIWSIN73.mjs").then((module) => module["Stack_template"]);
+var metadataTypes = import("./metadataTypes-6B2QENVO.mjs").then(
   (module) => toBinary("default" in module ? module.default : module)
 );
 var asset = {};
 var extensions = {};
-var getMetadata = () => import("./stack_template_metadata-VQ5ZOK6T.mjs").then(
+var getMetadata = () => import("./stack_template_metadata-AHQT7L52.mjs").then(
   (module) => toBinary("default" in module ? module.default : module)
 );
-var genesis = "0xa34ba5b6c05f162c2576e2fa1a07338299870f428f5dfe47990a1e2d374e88bb";
+var genesis = "0x223e1cf151a057e4d59bbe9da7bab3fdd5fa8cc90983a7d14fca0cb7b10f03e0";
 var _allDescriptors = { descriptors: descriptorValues, metadataTypes, asset, extensions, getMetadata, genesis };
 var stack_template_default = _allDescriptors;
 
 // .papi/descriptors/src/bulletin.ts
-var descriptorValues2 = import("./descriptors-WAHLXGW2.mjs").then((module) => module["Bulletin"]);
-var metadataTypes2 = import("./metadataTypes-6KBBW7VV.mjs").then(
+var descriptorValues2 = import("./descriptors-WIWSIN73.mjs").then((module) => module["Bulletin"]);
+var metadataTypes2 = import("./metadataTypes-6B2QENVO.mjs").then(
   (module) => toBinary("default" in module ? module.default : module)
 );
 var asset2 = {};
 var extensions2 = {};
-var getMetadata2 = () => import("./bulletin_metadata-2ZJKALYK.mjs").then(
+var getMetadata2 = () => import("./bulletin_metadata-6D4OUQ3Y.mjs").then(
   (module) => toBinary("default" in module ? module.default : module)
 );
 var genesis2 = "0x744960c32e3a3df5440e1ecd4d34096f1ce2230d7016a5ada8a765d5a622b4ea";
@@ -95,8 +95,8 @@ var XcmVersionedAsset = _Enum;
 
 // .papi/descriptors/src/index.ts
 var metadatas = {
-  ["0xdd126935b4c09d1ce6e4b1a6d80b07f88a202b05e82a75cf9c7e49825d0473f9"]: stack_template_default,
-  ["0x9838682961f13a0665e7dac54178aa99531391530e60e879a9eab84d6dc2a199"]: bulletin_default
+  ["0x29334ab9d42eff3e8115739d186e6c070799332ae0d2ed42abcddd02f37ea970"]: stack_template_default,
+  ["0x1a82e5143be3211ded412b0368b486ce83bd41a80ec95eb267f6c204adda8365"]: bulletin_default
 };
 var getMetadata3 = async (codeHash) => {
   try {

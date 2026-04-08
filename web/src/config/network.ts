@@ -1,7 +1,7 @@
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"]);
 
-export const LOCAL_WS_URL = "ws://127.0.0.1:9944";
-export const LOCAL_ETH_RPC_URL = "http://127.0.0.1:8545";
+export const LOCAL_WS_URL = "ws://localhost:9944";
+export const LOCAL_ETH_RPC_URL = "http://localhost:8545";
 
 export const TESTNET_WS_URL = "wss://services.polkadothub-rpc.com/testnet";
 export const TESTNET_ETH_RPC_URL = "https://services.polkadothub-rpc.com/testnet";

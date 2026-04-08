@@ -20,6 +20,26 @@ The foundation for the entire blockchain layer. Polkadot SDK provides FRAME (the
 
 The runtime includes core pallets (System, Balances, Aura, Session, Sudo, XCM) plus `pallet-revive` for smart contracts and the custom `TemplatePallet` for proof of existence.
 
+## Statement Store
+
+Statement Store is an omni-node feature for validating, storing, and gossiping signed statements over the network using a runtime-provided `validate_statement` API.
+
+- **Used for**: Short-lived off-chain statement storage and propagation
+- **Runtime pieces**: `pallet-statement` + `sp-statement-store` runtime API
+- **Node flag**: `--enable-statement-store`
+- **RPC methods**: `statement_submit`, `statement_dump`, plus the topic/key query variants
+- **Local status in this template**: Available in the repo's relay-backed Zombienet scripts; unavailable in omni-node dev mode on stable2512-3
+
+The full-feature local scripts generate a local relay-chain-backed spec and then start a fixed-port Zombienet network (2 relay validators + 1 collator). They wait until `statement_submit` appears in `rpc_methods`, so the Statement Store RPCs are actually present before contract deployment or frontend startup continues.
+
+The lighter solo-node tools (`start-dev.sh` and Docker Compose) use omni-node dev mode for a faster iteration loop. On `polkadot-sdk stable2512-3`, that dev path does not wire up Statement Store even if `--enable-statement-store` is passed.
+
+The current template integration is active in all three local entry points:
+
+- CLI: signed submission and dump flows via `stack-cli chain statement-submit` / `statement-dump`
+- Frontend: optional Statement Store submission on the pallet and contract claim pages
+- Scripts: [`scripts/test-statement-store-smoke.sh`](scripts/test-statement-store-smoke.sh) runs a relay-backed local submission and dump check
+
 ## pallet-revive (EVM + PVM)
 
 Enables both EVM and PolkaVM smart contract execution on the parachain. Contracts written in Solidity can be compiled to either target and deployed through the same Ethereum-compatible JSON-RPC interface.

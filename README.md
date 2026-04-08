@@ -21,7 +21,7 @@ A Cumulus-based parachain runtime built on **polkadot-sdk stable2512** with smar
 - **Source**: [`blockchain/runtime/`](blockchain/runtime/)
 - **Pallets included**: System, Balances, Aura, Session, Sudo, XCM, pallet-revive, TemplatePallet
 - **pallet-revive**: Enables both EVM and PVM smart contract execution with Ethereum RPC compatibility
-- **Runs locally** via `polkadot-omni-node --dev`
+- **Runs locally** via the repo scripts, which start a single local omni-node for day-to-day dev and keep a separate Zombienet flow for relay-chain topology work
 
 ### Solidity Smart Contracts
 
@@ -45,7 +45,7 @@ A React + Vite + TypeScript + Tailwind CSS frontend.
 - **Contract interaction**: [viem](https://viem.sh/) through the eth-rpc proxy with Ethereum dev accounts
 - **Endpoints**: Configurable Substrate WS and Ethereum JSON-RPC endpoints, with local-dev defaults on `localhost` and testnet defaults on hosted deployments
 - **Bulletin Chain**: Optional IPFS upload via the Polkadot Bulletin Chain with clickable IPFS links
-- **Pages**: Home (connection + pallet detection), Pallet PoE, EVM PoE, PVM PoE, Accounts
+- **Pages**: Home (connection + pallet detection), Pallet PoE, EVM PoE, PVM PoE, Statements, Accounts
 - **State management**: Zustand
 
 ### CLI
@@ -55,15 +55,16 @@ A Rust CLI tool using [subxt](https://github.com/parity-tech/subxt) and [alloy](
 - **Source**: [`cli/`](cli/)
 - **Pallet commands**: `pallet create-claim [hash | --file path] [--upload] [-s signer]`, `revoke-claim`, `get-claim`, `list-claims`
 - **Contract commands**: `contract create-claim <evm|pvm> [hash | --file path] [--upload] [-s signer] [--bulletin-signer signer]`, `revoke-claim`, `get-claim`, `info`
-- **Chain commands**: `chain info`, `chain blocks`
+- **Chain commands**: `chain info`, `chain blocks`, `chain statement-submit --file <path> [--signer alice] [--unsigned]`, `chain statement-dump`
 - **Signers**: Pallet commands accept dev names, mnemonic phrases, or 0x secret seeds. Contract commands accept dev names or 0x Ethereum private keys.
 - **Bulletin Chain**: `--upload` flag uploads files to IPFS via `TransactionStorage.store()`. When using a raw Ethereum private key for contract calls, also pass `--bulletin-signer` for the Substrate-side upload.
 
 ### Deployment
 
-- [`scripts/start-all.sh`](scripts/start-all.sh) - Build runtime, deploy contracts, and start frontend — one command quick start
-- [`scripts/start-dev.sh`](scripts/start-dev.sh) - Build runtime, start local node
-- [`scripts/start-dev-with-contracts.sh`](scripts/start-dev-with-contracts.sh) - All of the above + compile and deploy both contracts
+- [`scripts/start-all.sh`](scripts/start-all.sh) - Full working local stack: relay chain, collator, Statement Store, contracts, and frontend
+- [`scripts/start-dev.sh`](scripts/start-dev.sh) - Lightweight solo-node runtime/pallet loop (no Statement Store on stable2512-3)
+- [`scripts/start-local.sh`](scripts/start-local.sh) - Relay-backed Zombienet network only
+- [`scripts/start-frontend.sh`](scripts/start-frontend.sh) - Frontend dev server for an already-running chain
 - [`scripts/deploy-paseo.sh`](scripts/deploy-paseo.sh) - Deploy contracts to Polkadot TestNet
 - [`scripts/deploy-frontend.sh`](scripts/deploy-frontend.sh) - Deploy frontend to IPFS
 - [`.github/workflows/deploy-frontend.yml`](.github/workflows/deploy-frontend.yml) - Optional manual CI deploy to IPFS + DotNS
@@ -77,8 +78,10 @@ A Rust CLI tool using [subxt](https://github.com/parity-tech/subxt) and [alloy](
 
 - **Rust** (stable, installed via [rustup](https://rustup.rs/))
 - **Node.js** 22.x LTS (`22.5+` recommended) and npm v10.9.0+
+- **polkadot** v1.21.3 ([download](https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-stable2512-3)) for the local relay chain
 - **polkadot-omni-node** v1.21.3 ([download](https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-stable2512-3))
 - **eth-rpc** v0.12.0 ([download](https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-stable2512-3)) - Ethereum JSON-RPC adapter
+- **zombienet** for the local relay-chain + collator topology
 - **chain-spec-builder** (`cargo install staging-chain-spec-builder`)
 
 See [INSTALL.md](INSTALL.md) for detailed setup instructions.
@@ -95,14 +98,16 @@ The repo includes [`.nvmrc`](.nvmrc) and `engines` fields in the JavaScript proj
 # Frontend:      http://localhost:5173
 ```
 
+`start-all.sh` is the recommended full-feature local path. It uses Zombienet under the hood so the Statement Store example works on `polkadot-sdk stable2512-3`.
+
 Or run components individually:
 
 ```bash
-# Start just the dev chain
+# Start just the lightweight solo dev chain
 ./scripts/start-dev.sh
 
-# Start chain + compile and deploy contracts
-./scripts/start-dev-with-contracts.sh
+# Start a relay-backed local network only
+./scripts/start-local.sh
 
 # In another terminal, start the frontend
 ./scripts/start-frontend.sh
@@ -111,7 +116,11 @@ Or run components individually:
 cargo run -p stack-cli -- chain info
 cargo run -p stack-cli -- pallet create-claim --file ./README.md
 cargo run -p stack-cli -- pallet list-claims
+cargo run -p stack-cli -- chain statement-submit --file ./README.md --signer alice
+cargo run -p stack-cli -- chain statement-dump
 ```
+
+The solo-node dev script (`start-dev.sh`) generates a local chain spec, then starts a single local omni-node on `ws://127.0.0.1:9944` for the fastest runtime/pallet loop. On stable2512-3 it does **not** expose Statement Store RPCs because omni-node dev mode drops the statement-store wiring. Use `./scripts/start-all.sh` when you want the full local stack, or `./scripts/start-local.sh` when you specifically need the relay-backed network.
 
 The frontend keeps `deployments.json` and `web/src/config/deployments.ts` as checked-in stubs. Deploy scripts update both files automatically after a successful contract deployment.
 
@@ -120,7 +129,13 @@ If you want explicit build-time defaults for hosted frontends, copy [`web/.env.e
 ### Deploy contracts
 
 ```bash
-# Compile and deploy to local node
+# Recommended full local path
+./scripts/start-all.sh
+
+# Or, against a manually started local node:
+# 1) ./scripts/start-dev.sh
+# 2) eth-rpc --node-rpc-url ws://127.0.0.1:9944 --rpc-cors all
+# 3) deploy the contracts
 cd contracts/evm && npm install && npm run deploy:local
 cd contracts/pvm && npm install && npm run deploy:local
 
@@ -155,6 +170,13 @@ cargo test -p pallet-template
 
 # All tests including benchmarks
 SKIP_PALLET_REVIVE_FIXTURES=1 cargo test --workspace --features runtime-benchmarks
+
+# Statement Store runtime + CLI coverage
+cargo test -p stack-template-runtime
+cargo test -p stack-cli
+
+# Relay-backed Statement Store smoke test
+./scripts/test-statement-store-smoke.sh
 
 # Solidity tests (local Hardhat network)
 cd contracts/evm && npx hardhat test

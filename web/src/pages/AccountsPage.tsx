@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useChainStore } from "../store/chainStore";
 import { devAccounts } from "../hooks/useAccount";
 import { evmDevAccounts } from "../config/evm";
@@ -97,6 +97,8 @@ function CopyableAddress({ label, address }: { label: string; address: string })
 
 export default function AccountsPage() {
 	const { wsUrl, connected } = useChainStore();
+	const spektrUnsubscribeRef = useRef<(() => void) | null>(null);
+	const extensionUnsubscribeRef = useRef<(() => void) | null>(null);
 	const [availableWallets, setAvailableWallets] = useState<string[]>([]);
 	const [extensionAccounts, setExtensionAccounts] = useState<InjectedPolkadotAccount[]>([]);
 	const [connectedWallet, setConnectedWallet] = useState<string | null>(null);
@@ -153,6 +155,8 @@ export default function AccountsPage() {
 
 	// Detect host environment and inject Spektr on mount
 	useEffect(() => {
+		let cancelled = false;
+
 		async function initSpektr() {
 			if (!isInHost()) {
 				setSpektrStatus("unavailable");
@@ -173,16 +177,30 @@ export default function AccountsPage() {
 					return;
 				}
 				const ext = await connectInjectedExtension(SpektrExtensionName);
+				if (cancelled) {
+					ext.disconnect();
+					return;
+				}
 				const accounts = ext.getAccounts();
 				setSpektrAccounts(accounts);
 				setSpektrStatus("connected");
-				ext.subscribe((updated) => setSpektrAccounts(updated));
+				spektrUnsubscribeRef.current?.();
+				spektrUnsubscribeRef.current = ext.subscribe((updated) => {
+					setSpektrAccounts(updated);
+				});
 			} catch (e) {
 				console.error("[Spektr] Init failed:", e);
 				setSpektrStatus("failed");
 			}
 		}
+
 		initSpektr();
+
+		return () => {
+			cancelled = true;
+			spektrUnsubscribeRef.current?.();
+			spektrUnsubscribeRef.current = null;
+		};
 	}, []);
 
 	// Detect available browser extension wallets on mount
@@ -201,7 +219,10 @@ export default function AccountsPage() {
 			const accounts = ext.getAccounts();
 			setExtensionAccounts(accounts);
 			setConnectedWallet(name);
-			ext.subscribe((updated) => setExtensionAccounts(updated));
+			extensionUnsubscribeRef.current?.();
+			extensionUnsubscribeRef.current = ext.subscribe((updated) => {
+				setExtensionAccounts(updated);
+			});
 		} catch (e) {
 			console.error("Failed to connect wallet:", e);
 			setFundStatus(`Error connecting wallet: ${e instanceof Error ? e.message : e}`);
@@ -209,9 +230,18 @@ export default function AccountsPage() {
 	}
 
 	function disconnectWallet() {
+		extensionUnsubscribeRef.current?.();
+		extensionUnsubscribeRef.current = null;
 		setExtensionAccounts([]);
 		setConnectedWallet(null);
 	}
+
+	useEffect(() => {
+		return () => {
+			spektrUnsubscribeRef.current?.();
+			extensionUnsubscribeRef.current?.();
+		};
+	}, []);
 
 	async function fundAccount(ss58Address: string, accountName: string) {
 		if (!connected) {

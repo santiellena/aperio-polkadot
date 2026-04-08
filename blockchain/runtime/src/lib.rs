@@ -8,6 +8,8 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 mod benchmarks;
 pub mod configs;
 mod genesis_config_presets;
+#[cfg(test)]
+mod tests;
 mod weights;
 
 extern crate alloc;
@@ -240,6 +242,9 @@ mod runtime {
 	#[runtime::pallet_index(33)]
 	pub type MessageQueue = pallet_message_queue;
 
+	#[runtime::pallet_index(40)]
+	pub type Statement = pallet_statement;
+
 	#[runtime::pallet_index(50)]
 	pub type TemplatePallet = pallet_template;
 
@@ -350,6 +355,18 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 	}
 
+	impl sp_statement_store::runtime_api::ValidateStatement<Block> for Runtime {
+		fn validate_statement(
+			source: sp_statement_store::runtime_api::StatementSource,
+			statement: sp_statement_store::Statement,
+		) -> Result<
+			sp_statement_store::runtime_api::ValidStatement,
+			sp_statement_store::runtime_api::InvalidStatement,
+		> {
+			Statement::validate_statement(source, statement)
+		}
+	}
+
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
 		fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (frame_support::weights::Weight, frame_support::weights::Weight) {
@@ -417,7 +434,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("stack-template-runtime"),
 	impl_name: alloc::borrow::Cow::Borrowed("stack-template-runtime"),
 	authoring_version: 1,
-	spec_version: 2,
+	spec_version: 3,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,

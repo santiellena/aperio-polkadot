@@ -1,32 +1,29 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+source "$SCRIPT_DIR/common.sh"
 
 echo "=== Polkadot Stack Template - Local Development ==="
+echo ""
+log_info "This is the fastest local loop for pallet/runtime work."
+log_info "Typical startup time is under 2 minutes once Rust dependencies are built."
+log_info "Statement Store is intentionally unavailable in this solo-node mode."
 echo ""
 
 # Build the runtime
 echo "[1/3] Building runtime..."
-cargo build -p stack-template-runtime --release
+build_runtime
 
 # Create the chain spec using the newly built WASM
 echo "[2/3] Generating chain spec..."
-chain-spec-builder \
-    -c "$ROOT_DIR/blockchain/chain_spec.json" \
-    create -t development \
-    --relay-chain paseo \
-    --para-id 1000 \
-    --runtime "$ROOT_DIR/target/release/wbuild/stack-template-runtime/stack_template_runtime.compact.compressed.wasm" \
-    named-preset development
+generate_chain_spec
 
 echo "  Chain spec written to blockchain/chain_spec.json"
 
-# Start the node
-echo "[3/3] Starting omni-node in dev mode..."
-echo "  RPC endpoint: ws://127.0.0.1:9944"
+# Start the local node
+echo "[3/3] Starting local omni-node..."
+log_info "RPC endpoint: ws://127.0.0.1:9944"
+log_info "Use start-all.sh for the full stack, or start-local.sh for just the relay-backed network."
 echo ""
-echo "  For Ethereum RPC + contract deployment, use start-dev-with-contracts.sh instead."
-echo ""
-polkadot-omni-node --chain "$ROOT_DIR/blockchain/chain_spec.json" --dev
+run_local_node_foreground

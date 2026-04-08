@@ -7,6 +7,8 @@ import { Binary } from "polkadot-api";
 import FileDropZone from "../components/FileDropZone";
 import { hexHashToCid, ipfsUrl, checkIpfsAvailable } from "../utils/cid";
 import { uploadToBulletin, checkBulletinAuthorization } from "../hooks/useBulletin";
+import { submitToStatementStore, checkStatementStoreAvailable } from "../hooks/useStatementStore";
+import { getDevKeypair } from "../hooks/useAccount";
 
 interface Claim {
 	hash: string;
@@ -32,15 +34,21 @@ export default function PalletPage() {
 	const [fileHash, setFileHash] = useState<`0x${string}` | null>(null);
 	const [fileBytes, setFileBytes] = useState<Uint8Array | null>(null);
 	const [uploadToIpfs, setUploadToIpfs] = useState(false);
+	const [uploadToStatementStore, setUploadToStatementStore] = useState(false);
 	const [claims, setClaims] = useState<Claim[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [ipfsAvailable, setIpfsAvailable] = useState<Record<string, boolean>>({});
+	const [statementStoreAvailable, setStatementStoreAvailable] = useState<boolean | null>(null);
 
 	const account = devAccounts[selectedAccount];
 
 	useEffect(() => {
 		loadClaims();
 	}, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+	useEffect(() => {
+		checkStatementStoreAvailable(wsUrl).then(setStatementStoreAvailable);
+	}, [wsUrl]);
 
 	function getApi() {
 		const client = getClient(wsUrl);
@@ -101,7 +109,17 @@ export default function PalletPage() {
 				setTxStatus("Uploading to Bulletin Chain (IPFS)...");
 				await uploadToBulletin(fileBytes, account.signer);
 				setTxStatus("Upload complete. Submitting claim...");
-			} else {
+			}
+
+			// Optional: submit to Statement Store
+			if (uploadToStatementStore && fileBytes) {
+				setTxStatus("Submitting to Statement Store...");
+				const keypair = getDevKeypair(selectedAccount);
+				await submitToStatementStore(wsUrl, fileBytes, keypair.publicKey, keypair.sign);
+				setTxStatus("Statement Store submission complete. Submitting claim...");
+			}
+
+			if (!uploadToIpfs && !uploadToStatementStore) {
 				setTxStatus("Submitting create_claim...");
 			}
 
@@ -174,6 +192,10 @@ export default function PalletPage() {
 					showUploadToggle={true}
 					uploadToIpfs={uploadToIpfs}
 					onUploadToggle={setUploadToIpfs}
+					showStatementStoreToggle={true}
+					uploadToStatementStore={uploadToStatementStore}
+					onStatementStoreToggle={setUploadToStatementStore}
+					statementStoreDisabled={statementStoreAvailable === false}
 				/>
 
 				{fileHash && (

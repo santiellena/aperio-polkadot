@@ -5,8 +5,7 @@ import { getClient } from "../hooks/useChain";
 import { getNetworkPresetEndpoints, type NetworkPreset } from "../config/network";
 
 export default function HomePage() {
-	const { wsUrl, ethRpcUrl, setWsUrl, setEthRpcUrl, connected, blockNumber, pallets } =
-		useChainStore();
+	const { wsUrl, ethRpcUrl, setEthRpcUrl, connected, blockNumber, pallets } = useChainStore();
 	const { connect } = useConnection();
 	const [urlInput, setUrlInput] = useState(wsUrl);
 	const [ethRpcInput, setEthRpcInput] = useState(ethRpcUrl);
@@ -34,7 +33,6 @@ export default function HomePage() {
 	}, [connected, wsUrl]);
 
 	async function handleConnect() {
-		setWsUrl(urlInput);
 		setEthRpcUrl(ethRpcInput);
 		setConnecting(true);
 		setError(null);

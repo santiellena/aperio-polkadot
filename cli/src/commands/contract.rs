@@ -1,4 +1,4 @@
-use crate::commands::{hash_input, resolve_substrate_signer};
+use crate::commands::{hash_input, resolve_statement_signer, resolve_substrate_signer};
 use alloy::{
 	primitives::{Address, FixedBytes},
 	providers::ProviderBuilder,
@@ -48,6 +48,9 @@ pub enum ContractAction {
 		/// Also upload the file to the Bulletin Chain (IPFS)
 		#[arg(long, requires = "file")]
 		upload: bool,
+		/// Also submit the file to the Statement Store
+		#[arg(long, requires = "file")]
+		statement_store: bool,
 		/// Signer: dev name (alice/bob/charlie) or 0x private key
 		#[arg(long, short, default_value = "alice")]
 		signer: String,
@@ -77,7 +80,7 @@ pub enum ContractAction {
 	},
 }
 
-fn resolve_signer(name: &str) -> Result<PrivateKeySigner, Box<dyn std::error::Error>> {
+pub fn resolve_signer(name: &str) -> Result<PrivateKeySigner, Box<dyn std::error::Error>> {
 	let lowered = name.to_lowercase();
 	let key = match lowered.as_str() {
 		"alice" => ALICE_KEY,
@@ -114,7 +117,7 @@ fn parse_hash(hex_str: &str) -> Result<FixedBytes<32>, Box<dyn std::error::Error
 	Ok(hex_str.parse()?)
 }
 
-fn load_deployments() -> Result<Deployments, Box<dyn std::error::Error>> {
+pub fn load_deployments() -> Result<Deployments, Box<dyn std::error::Error>> {
 	let paths = [
 		PathBuf::from("deployments.json"),
 		PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../deployments.json"),
@@ -128,7 +131,7 @@ fn load_deployments() -> Result<Deployments, Box<dyn std::error::Error>> {
 	Err("deployments.json not found. Deploy contracts first.".into())
 }
 
-fn get_contract_address(
+pub fn get_contract_address(
 	deployments: &Deployments,
 	contract_type: &str,
 ) -> Result<Address, Box<dyn std::error::Error>> {
@@ -151,6 +154,7 @@ fn get_contract_address(
 pub async fn run(
 	action: ContractAction,
 	eth_rpc_url: &str,
+	ws_url: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
 	match action {
 		ContractAction::Info => {
@@ -172,16 +176,25 @@ pub async fn run(
 			hash,
 			file,
 			upload,
+			statement_store,
 			signer,
 			bulletin_signer,
 		} => {
 			let (hash_hex, file_bytes) = hash_input(hash, file.as_deref())?;
 
 			if upload {
-				let bytes = file_bytes.ok_or("--upload requires --file")?;
+				let bytes = file_bytes.as_ref().ok_or("--upload requires --file")?;
 				let substrate_signer =
 					resolve_bulletin_signer(&signer, bulletin_signer.as_deref())?;
-				crate::commands::upload_to_bulletin(&bytes, &substrate_signer).await?;
+				crate::commands::upload_to_bulletin(bytes, &substrate_signer).await?;
+			}
+
+			if statement_store {
+				let bytes = file_bytes.as_ref().ok_or("--statement-store requires --file")?;
+				let statement_signer_input = bulletin_signer.as_deref().unwrap_or(&signer);
+				let statement_signer = resolve_statement_signer(statement_signer_input)?;
+				crate::commands::submit_to_statement_store(ws_url, bytes, &statement_signer)
+					.await?;
 			}
 
 			let deployments = load_deployments()?;

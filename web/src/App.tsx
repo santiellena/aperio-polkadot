@@ -1,19 +1,19 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { useChainStore } from "./store/chainStore";
-import { useConnection } from "./hooks/useConnection";
+import { useConnectionManagement } from "./hooks/useConnection";
 
 export default function App() {
 	const location = useLocation();
 	const pallets = useChainStore((s) => s.pallets);
 
-	// Auto-connect and subscribe to blocks — runs regardless of which page loads first
-	useConnection();
+	useConnectionManagement();
 
 	const navItems = [
 		{ path: "/", label: "Home", enabled: true },
 		{ path: "/pallet", label: "Pallet PoE", enabled: pallets.templatePallet === true },
 		{ path: "/evm", label: "EVM PoE", enabled: pallets.revive === true },
 		{ path: "/pvm", label: "PVM PoE", enabled: pallets.revive === true },
+		{ path: "/statements", label: "Statements", enabled: true },
 		{ path: "/accounts", label: "Accounts", enabled: true },
 	];
 

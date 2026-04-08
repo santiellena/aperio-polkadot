@@ -41,22 +41,23 @@ export type DigestItem = Enum<{
 }>;
 export declare const DigestItem: GetEnum<DigestItem>;
 export type I82jm9g7pufuel = [FixedSizeBinary<4>, Binary];
-export type I1e4f67i7vdn9l = Array<{
+export type Ibhm6cadnrj8ab = Array<{
     "phase": Phase;
     "event": Enum<{
-        "System": Anonymize<Ibubfrt4kcktbv>;
+        "System": Anonymize<Ic975tau6ptl1n>;
         "ParachainSystem": Anonymize<Icbsekf57miplo>;
         "Balances": Anonymize<I6pikrrn79qkf8>;
         "TransactionPayment": TransactionPaymentEvent;
-        "Sudo": Anonymize<I6jal5ec8n1ik>;
+        "Sudo": Anonymize<I26ommcnpjss9e>;
         "CollatorSelection": Anonymize<I4srakrmf0fspo>;
         "Session": Anonymize<I6ue0ck5fc3u44>;
         "XcmpQueue": Anonymize<Idsqc7mhp6nnle>;
         "PolkadotXcm": Anonymize<If95hivmqmkiku>;
         "CumulusXcm": Anonymize<I5uv57c3fffoi9>;
         "MessageQueue": Anonymize<I2kosejppk3jon>;
+        "Statement": Anonymize<Ic1vdi0e9te2la>;
         "TemplatePallet": Anonymize<Ibs185ts04asdp>;
-        "Revive": Anonymize<If2te5v2sg303b>;
+        "Revive": Anonymize<I4is17cttqhh1t>;
     }>;
     "topics": Anonymize<Ic5m5lp1oioo8r>;
 }>;
@@ -66,7 +67,7 @@ export type Phase = Enum<{
     "Initialization": undefined;
 }>;
 export declare const Phase: GetEnum<Phase>;
-export type Ibubfrt4kcktbv = AnonymousEnum<{
+export type Ic975tau6ptl1n = AnonymousEnum<{
     /**
      * An extrinsic completed successfully.
      */
@@ -74,7 +75,7 @@ export type Ibubfrt4kcktbv = AnonymousEnum<{
     /**
      * An extrinsic failed.
      */
-    "ExtrinsicFailed": Anonymize<Ift711bcn6089c>;
+    "ExtrinsicFailed": Anonymize<I9hbqhk6otgba2>;
     /**
      * `:code` was updated.
      */
@@ -98,7 +99,7 @@ export type Ibubfrt4kcktbv = AnonymousEnum<{
     /**
      * An invalid authorized upgrade was rejected while trying to apply it.
      */
-    "RejectedInvalidAuthorizedUpgrade": Anonymize<Idt0bcakd7s5t2>;
+    "RejectedInvalidAuthorizedUpgrade": Anonymize<I268r55594blt6>;
 }>;
 export type Ia82mnkmeo2rhc = {
     "dispatch_info": Anonymize<Ic9s8f85vjtncc>;
@@ -118,11 +119,11 @@ export type Iehg04bj71rkd = AnonymousEnum<{
     "Yes": undefined;
     "No": undefined;
 }>;
-export type Ift711bcn6089c = {
-    "dispatch_error": Anonymize<I4qjfsi5ivfcd4>;
+export type I9hbqhk6otgba2 = {
+    "dispatch_error": Anonymize<Ielmcggkdu2qj>;
     "dispatch_info": Anonymize<Ic9s8f85vjtncc>;
 };
-export type I4qjfsi5ivfcd4 = AnonymousEnum<{
+export type Ielmcggkdu2qj = AnonymousEnum<{
     "Other": undefined;
     "CannotLookup": undefined;
     "BadOrigin": undefined;
@@ -144,6 +145,7 @@ export type I4qjfsi5ivfcd4 = AnonymousEnum<{
         "PolkadotXcm": Anonymize<I4vcvo9od6afmt>;
         "CumulusXcm": undefined;
         "MessageQueue": Anonymize<I5iupade5ag2dp>;
+        "Statement": undefined;
         "TemplatePallet": Anonymize<I92b4r5k2dd3v9>;
         "Revive": Anonymize<I54rjnlnsa98ib>;
     }>;
@@ -926,9 +928,9 @@ export type Ibgl04rn6nbfm6 = {
     "code_hash": FixedSizeBinary<32>;
     "check_version": boolean;
 };
-export type Idt0bcakd7s5t2 = {
+export type I268r55594blt6 = {
     "code_hash": FixedSizeBinary<32>;
-    "error": Anonymize<I4qjfsi5ivfcd4>;
+    "error": Anonymize<Ielmcggkdu2qj>;
 };
 export type Icbsekf57miplo = AnonymousEnum<{
     /**
@@ -1185,11 +1187,11 @@ export type Ier2cke86dqbr2 = {
     "actual_fee": bigint;
     "tip": bigint;
 };
-export type I6jal5ec8n1ik = AnonymousEnum<{
+export type I26ommcnpjss9e = AnonymousEnum<{
     /**
      * A sudo call just took place.
      */
-    "Sudid": Anonymize<I81eeeoh7kbls2>;
+    "Sudid": Anonymize<I3t2db5s2bmfa8>;
     /**
      * The sudo key has been updated.
      */
@@ -1201,15 +1203,15 @@ export type I6jal5ec8n1ik = AnonymousEnum<{
     /**
      * A [sudo_as](Pallet::sudo_as) call just took place.
      */
-    "SudoAsDone": Anonymize<I81eeeoh7kbls2>;
+    "SudoAsDone": Anonymize<I3t2db5s2bmfa8>;
 }>;
-export type I81eeeoh7kbls2 = {
+export type I3t2db5s2bmfa8 = {
     /**
      * The result of the call made by the sudo user.
      */
-    "sudo_result": Anonymize<Iaphnke68l5u75>;
+    "sudo_result": Anonymize<I20ill9s2nm9n0>;
 };
-export type Iaphnke68l5u75 = ResultPayload<undefined, Anonymize<I4qjfsi5ivfcd4>>;
+export type I20ill9s2nm9n0 = ResultPayload<undefined, Anonymize<Ielmcggkdu2qj>>;
 export type I5rtkmhm2dng4u = {
     /**
      * The old sudo key (if one was previously set).
@@ -2186,6 +2188,45 @@ export type I7tmrp94r9sq4n = {
      */
     "index": number;
 };
+export type Ic1vdi0e9te2la = AnonymousEnum<{
+    /**
+     * A new statement is submitted
+     */
+    "NewStatement": Anonymize<I3uua81e9uvgnp>;
+}>;
+export type I3uua81e9uvgnp = {
+    "account": SS58String;
+    "statement": Anonymize<I815pbp5omtss>;
+};
+export type I815pbp5omtss = {
+    "proof"?: (Enum<{
+        "Sr25519": {
+            "signature": FixedSizeBinary<64>;
+            "signer": FixedSizeBinary<32>;
+        };
+        "Ed25519": {
+            "signature": FixedSizeBinary<64>;
+            "signer": FixedSizeBinary<32>;
+        };
+        "Secp256k1Ecdsa": {
+            "signature": FixedSizeBinary<65>;
+            "signer": FixedSizeBinary<33>;
+        };
+        "OnChain": {
+            "who": FixedSizeBinary<32>;
+            "block_hash": FixedSizeBinary<32>;
+            "event_index": bigint;
+        };
+    }>) | undefined;
+    "decryption_key"?: Anonymize<I4s6vifaf8k998>;
+    "channel"?: Anonymize<I4s6vifaf8k998>;
+    "priority"?: Anonymize<I4arjljr6dpflb>;
+    "num_topics": number;
+    "topics": FixedSizeArray<4, FixedSizeBinary<32>>;
+    "data"?: Anonymize<Iabpgqcjikia83>;
+};
+export type I4arjljr6dpflb = (number) | undefined;
+export type Iabpgqcjikia83 = (Binary) | undefined;
 export type Ibs185ts04asdp = AnonymousEnum<{
     /**
      * A new claim was created.
@@ -2206,7 +2247,7 @@ export type I9p6tgcfbrrlod = {
      */
     "hash": FixedSizeBinary<32>;
 };
-export type If2te5v2sg303b = AnonymousEnum<{
+export type I4is17cttqhh1t = AnonymousEnum<{
     /**
      * A custom event emitted by the contract.
      */
@@ -2223,7 +2264,7 @@ export type If2te5v2sg303b = AnonymousEnum<{
      * To distinguish reverted calls from successful ones, this event is emitted
      * for failed Ethereum transactions.
      */
-    "EthExtrinsicRevert": Anonymize<I269p0pefjltqr>;
+    "EthExtrinsicRevert": Anonymize<Ia246gkb4f2soh>;
 }>;
 export type I7svbvm6hg57aj = {
     /**
@@ -2246,8 +2287,8 @@ export type I8jhsbaiultviu = {
     "deployer": FixedSizeBinary<20>;
     "contract": FixedSizeBinary<20>;
 };
-export type I269p0pefjltqr = {
-    "dispatch_error": Anonymize<I4qjfsi5ivfcd4>;
+export type Ia246gkb4f2soh = {
+    "dispatch_error": Anonymize<Ielmcggkdu2qj>;
 };
 export type I95g6i7ilua7lq = Array<FixedSizeArray<2, number>>;
 export type Ieniouoqkq4icf = {
@@ -2278,7 +2319,6 @@ export type I8jgj1nhcr2dg8 = {
     "hrmp_watermark"?: Anonymize<I4arjljr6dpflb>;
     "consumed_go_ahead_signal"?: Anonymize<Iav8k1edbj86k7>;
 };
-export type I4arjljr6dpflb = (number) | undefined;
 export type Ifn6q3equiq9qi = {
     "parent_head": Binary;
     "relay_parent_number": number;
@@ -2478,7 +2518,6 @@ export type XcmPalletVersionMigrationStage = Enum<{
     "MigrateAndNotifyOldTargets": undefined;
 }>;
 export declare const XcmPalletVersionMigrationStage: GetEnum<XcmPalletVersionMigrationStage>;
-export type Iabpgqcjikia83 = (Binary) | undefined;
 export type I7e5oaj2qi4kl1 = {
     "amount": bigint;
     "owner": XcmVersionedLocation;
@@ -4250,7 +4289,7 @@ export type I7u915mvkdsb08 = ResultPayload<Binary, Enum<{
     "NotFound": Anonymize<I4gil44d08grh>;
     "Codec": undefined;
 }>>;
-export type I5vonnvqgl37ne = ResultPayload<Anonymize<Iaphnke68l5u75>, Anonymize<I5nrjkj9qumobs>>;
+export type I205hi2ig012m3 = ResultPayload<Anonymize<I20ill9s2nm9n0>, Anonymize<I5nrjkj9qumobs>>;
 export type I5nrjkj9qumobs = AnonymousEnum<{
     "Invalid": Enum<{
         "Call": undefined;
@@ -4332,16 +4371,29 @@ export type Ic1d4u2opv3fst = {
     "hrmp_watermark": number;
     "head_data": Binary;
 };
+export type Ico18ks790i2bl = AnonymousEnum<{
+    "Chain": undefined;
+    "Network": undefined;
+    "Local": undefined;
+}>;
+export type I3ju6ot8lfmk90 = ResultPayload<{
+    "max_count": number;
+    "max_size": number;
+}, Enum<{
+    "BadProof": undefined;
+    "NoProof": undefined;
+    "InternalError": undefined;
+}>>;
 export type Ie9sr1iqcg3cgm = ResultPayload<undefined, string>;
 export type I1mqgk2tmnn9i2 = (string) | undefined;
 export type I6lr8sctk0bi4e = Array<string>;
-export type I6qr5eihg3ou8 = {
+export type I8aq8rmkjo25um = {
     "weight_consumed": Anonymize<I4q39t5hn830vp>;
     "weight_required": Anonymize<I4q39t5hn830vp>;
     "storage_deposit": Anonymize<If7bmpttbdmqu4>;
     "max_storage_deposit": Anonymize<If7bmpttbdmqu4>;
     "gas_consumed": bigint;
-    "result": ResultPayload<Anonymize<I620n7irgfspm4>, Anonymize<I4qjfsi5ivfcd4>>;
+    "result": ResultPayload<Anonymize<I620n7irgfspm4>, Anonymize<Ielmcggkdu2qj>>;
 };
 export type If7bmpttbdmqu4 = AnonymousEnum<{
     "Refund": bigint;
@@ -4355,7 +4407,7 @@ export type I9sijb8gfrns29 = AnonymousEnum<{
     "Upload": Binary;
     "Existing": FixedSizeBinary<32>;
 }>;
-export type Iargcm6g040ang = {
+export type Icskkb9gddueej = {
     "weight_consumed": Anonymize<I4q39t5hn830vp>;
     "weight_required": Anonymize<I4q39t5hn830vp>;
     "storage_deposit": Anonymize<If7bmpttbdmqu4>;
@@ -4364,7 +4416,7 @@ export type Iargcm6g040ang = {
     "result": ResultPayload<{
         "result": Anonymize<I620n7irgfspm4>;
         "addr": FixedSizeBinary<20>;
-    }, Anonymize<I4qjfsi5ivfcd4>>;
+    }, Anonymize<Ielmcggkdu2qj>>;
 };
 export type I6f9v7emp7t5ba = {
     "access_list"?: (Anonymize<Ieap15h2pjii9u>) | undefined;
@@ -4402,14 +4454,14 @@ export type Idmrtv8jbbitnu = {
     "timestamp_override"?: Anonymize<I35p85j063s0il>;
     "reserved": boolean;
 };
-export type I646elkud9auir = ResultPayload<{
+export type Idurem13iqg682 = ResultPayload<{
     "code_hash": FixedSizeBinary<32>;
     "deposit": bigint;
-}, Anonymize<I4qjfsi5ivfcd4>>;
-export type Icuoa4acedm0rp = ResultPayload<Anonymize<Iabpgqcjikia83>, Enum<{
+}, Anonymize<Ielmcggkdu2qj>>;
+export type I295j1d7noqo25 = ResultPayload<Anonymize<Iabpgqcjikia83>, Enum<{
     "DoesntExist": undefined;
     "KeyDecodingFailed": undefined;
-    "StorageWriteFailed": Anonymize<I4qjfsi5ivfcd4>;
+    "StorageWriteFailed": Anonymize<Ielmcggkdu2qj>;
 }>>;
 export type I63nhnkgg114n5 = AnonymousEnum<{
     "CallTracer"?: ({
