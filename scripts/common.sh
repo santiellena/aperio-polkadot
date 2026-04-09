@@ -92,9 +92,9 @@ require_command() {
 
 require_port_free() {
     local port="$1"
-    if lsof -i :"$port" >/dev/null 2>&1; then
+    if lsof -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
         log_error "Port $port is already in use."
-        lsof -i :"$port" 2>/dev/null | head -5 >&2
+        lsof -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | head -5 >&2
         log_info "Stop the process above or choose a different port before retrying."
         exit 1
     fi
