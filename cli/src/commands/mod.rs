@@ -86,10 +86,7 @@ pub fn resolve_statement_signer(
 
 /// Resolve a hash from either a direct hex string or a file path.
 /// Returns (hex_hash, Option<file_bytes>).
-pub fn hash_input(
-	hash: Option<String>,
-	file: Option<&str>,
-) -> HashResult {
+pub fn hash_input(hash: Option<String>, file: Option<&str>) -> HashResult {
 	match (hash, file) {
 		(Some(h), _) => Ok((h, None)),
 		(None, Some(path)) => {
