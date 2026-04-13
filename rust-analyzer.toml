@@ -10,6 +10,11 @@ extraEnv = { "SKIP_WASM_BUILD" = "1" }
 # do not invalidate each other's caches.
 targetDir = "target/rust-analyzer"
 
+# The workspace has a member crate at cli/, but there is no Cargo feature named "cli".
+# Passing `--features cli` breaks `cargo check --workspace` (rust-analyzer / editor defaults).
+# Empty list = default features per crate only.
+features = []
+
 [procMacro.ignored]
 # Proc macros known to cause rust-analyzer slowdowns or instability.
 async-trait = ["async_trait"]

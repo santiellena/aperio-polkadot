@@ -66,149 +66,46 @@ nvm use || nvm install
 
 The repo root includes `.nvmrc`, and the JavaScript projects declare `engines.node` / `engines.npm`, so package managers and editors can surface version mismatches early.
 
-### Polkadot Relay Chain Binary
+### Polkadot SDK binaries (relay, workers, omni-node, eth-rpc)
 
-The local relay chain is started through `zombienet`, which launches the `polkadot` binary. Use the version matching the SDK release (stable2512-3).
+Zombienet runs the **`polkadot`** relay binary; local dev uses **`polkadot-omni-node`**. Contract tooling expects **`eth-rpc`** (Ethereum JSON-RPC on port `8545` by default). All must match **[polkadot-stable2512-3](https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-stable2512-3)**.
 
-Download the prebuilt binary for your platform from:
+**Recommended for this repo:** run from the repository root:
 
-https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-stable2512-3
-
-**macOS (Apple Silicon):**
 ```bash
-curl -L https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512-3/polkadot-aarch64-apple-darwin -o polkadot
-chmod +x polkadot
-sudo mv polkadot /usr/local/bin/
+./scripts/download-sdk-binaries.sh
 ```
 
-**Linux (x86_64):**
-```bash
-curl -L https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512-3/polkadot -o polkadot
-chmod +x polkadot
-sudo mv polkadot /usr/local/bin/
-```
+That fetches `polkadot`, `polkadot-prepare-worker`, `polkadot-execute-worker`, `polkadot-omni-node`, and `eth-rpc` into **`./bin/`** (gitignored). The stack scripts prepend `./bin` on `PATH` when **`STACK_DOWNLOAD_SDK_BINARIES=1`** (default). The relay binary requires the two **worker** binaries in the **same directory** as `polkadot`; the script places them together.
 
-**Build from source:**
+If you install binaries yourself, keep the same release for every binary and put relay + workers on `PATH` side by side. Prebuilt assets are on the [release page](https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-stable2512-3); platform support matches the script (macOS Apple Silicon and Linux x86_64).
+
+**Build from source** (optional):
+
 ```bash
 cargo install --git https://github.com/paritytech/polkadot-sdk --tag polkadot-stable2512-3 polkadot --locked
-```
-
-### Polkadot Prepare Worker
-
-Required by the `polkadot` relay chain binary. Must be installed in the same directory and match the same SDK release.
-
-Download the prebuilt binary for your platform from:
-
-https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-stable2512-3
-
-**macOS (Apple Silicon):**
-```bash
-curl -L https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512-3/polkadot-prepare-worker-aarch64-apple-darwin -o polkadot-prepare-worker
-chmod +x polkadot-prepare-worker
-sudo mv polkadot-prepare-worker /usr/local/bin/
-```
-
-**Linux (x86_64):**
-```bash
-curl -L https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512-3/polkadot-prepare-worker -o polkadot-prepare-worker
-chmod +x polkadot-prepare-worker
-sudo mv polkadot-prepare-worker /usr/local/bin/
-```
-
-**Build from source:** Building `polkadot` from source (see above) produces all three binaries (`polkadot`, `polkadot-prepare-worker`, `polkadot-execute-worker`).
-
-### Polkadot Execute Worker
-
-Required by the `polkadot` relay chain binary. Must be installed in the same directory and match the same SDK release.
-
-Download the prebuilt binary for your platform from:
-
-https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-stable2512-3
-
-**macOS (Apple Silicon):**
-```bash
-curl -L https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512-3/polkadot-execute-worker-aarch64-apple-darwin -o polkadot-execute-worker
-chmod +x polkadot-execute-worker
-sudo mv polkadot-execute-worker /usr/local/bin/
-```
-
-**Linux (x86_64):**
-```bash
-curl -L https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512-3/polkadot-execute-worker -o polkadot-execute-worker
-chmod +x polkadot-execute-worker
-sudo mv polkadot-execute-worker /usr/local/bin/
-```
-
-**Build from source:** Building `polkadot` from source (see above) produces all three binaries (`polkadot`, `polkadot-prepare-worker`, `polkadot-execute-worker`).
-
-### Polkadot Omni Node
-
-The local dev chain runs on `polkadot-omni-node`. **You must use the version matching the SDK release (stable2512-3).**
-
-Download the prebuilt binary for your platform from:
-
-https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-stable2512-3
-
-**macOS (Apple Silicon):**
-```bash
-curl -L https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512-3/polkadot-omni-node-aarch64-apple-darwin -o polkadot-omni-node
-chmod +x polkadot-omni-node
-sudo mv polkadot-omni-node /usr/local/bin/
-```
-
-**Linux (x86_64):**
-```bash
-curl -L https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512-3/polkadot-omni-node -o polkadot-omni-node
-chmod +x polkadot-omni-node
-sudo mv polkadot-omni-node /usr/local/bin/
-```
-
-**Build from source:**
-```bash
 cargo install --git https://github.com/paritytech/polkadot-sdk --tag polkadot-stable2512-3 polkadot-omni-node --locked
-```
-
-### Ethereum RPC Adapter (eth-rpc)
-
-Bridges Ethereum JSON-RPC (default port `8545`) to the Substrate node, enabling Hardhat/ethers.js/MetaMask to interact with pallet-revive contracts.
-
-Download from the same release:
-
-**macOS (Apple Silicon):**
-```bash
-curl -L https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512-3/eth-rpc-aarch64-apple-darwin -o eth-rpc
-chmod +x eth-rpc
-sudo mv eth-rpc /usr/local/bin/
-```
-
-**Linux (x86_64):**
-```bash
-curl -L https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512-3/eth-rpc -o eth-rpc
-chmod +x eth-rpc
-sudo mv eth-rpc /usr/local/bin/
-```
-
-**Build from source:**
-```bash
 cargo install --git https://github.com/paritytech/polkadot-sdk --tag polkadot-stable2512-3 pallet-revive-eth-rpc --locked
 ```
 
-Verify:
+Building `polkadot` from source produces the worker binaries alongside it.
+
+**Verify versions** (from the repository root, using the downloaded binaries):
+
 ```bash
-eth-rpc --version
-# Should output: pallet-revive-eth-rpc 0.12.0
+./bin/polkadot --version
+# polkadot 1.21.3-...
+
+./bin/polkadot-omni-node --version
+# polkadot-omni-node 1.21.3-...
+
+./bin/eth-rpc --version
+# pallet-revive-eth-rpc 0.12.0
 ```
 
-Verify the version:
-```bash
-polkadot --version
-# Should output: polkadot 1.21.3-...
+If `./bin` is on your `PATH` (as when running `./scripts/start-all.sh` or after `export PATH="$(pwd)/bin:$PATH"`), you can call `polkadot --version` etc. without the prefix.
 
-polkadot-omni-node --version
-# Should output: polkadot-omni-node 1.21.3-...
-```
-
-> **Warning**: Using an older omni-node version (e.g., v1.18.5 from stable2503) will crash with "Missing required set_validation_data inherent" errors.
+> **Warning**: Using an older omni-node (e.g. v1.18.5 from an older SDK) can crash with errors such as "Missing required set_validation_data inherent" or missing worker binaries.
 
 ### Chain Spec Builder
 
@@ -453,14 +350,14 @@ In polkadot-sdk stable2512-3, `--enable-statement-store` is silently ignored in 
 
 ### "Worker binaries could not be found"
 
-The `polkadot` binary requires `polkadot-prepare-worker` and `polkadot-execute-worker` to be installed in the same directory. Without them the relay chain validators crash immediately on startup. Download both from the [stable2512-3 release](https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-stable2512-3) and place them in `/usr/local/bin/`.
+The `polkadot` binary requires `polkadot-prepare-worker` and `polkadot-execute-worker` in the **same directory** on your `PATH`. Without them, relay validators fail at startup. Use `./scripts/download-sdk-binaries.sh` (or install matching artifacts from the [stable2512-3 release](https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-stable2512-3) next to `polkadot`).
 
 ### Parachain stalls at block 0 on Zombienet
 
-All binaries (`polkadot`, `polkadot-omni-node`, `eth-rpc`) must be from the same SDK release. A version mismatch (e.g., `polkadot` 1.15.0 with `polkadot-omni-node` 1.21.3) causes the collator to fail to advertise collations to relay chain validators. Verify with:
+All binaries (`polkadot`, `polkadot-omni-node`, `eth-rpc`) must be from the same SDK release. A version mismatch (e.g., `polkadot` 1.15.0 with `polkadot-omni-node` 1.21.3) causes the collator to fail to advertise collations to relay chain validators. Verify with (repo root, after `./scripts/download-sdk-binaries.sh`):
 ```bash
-polkadot --version
-polkadot-omni-node --version
+./bin/polkadot --version
+./bin/polkadot-omni-node --version
 # Both should show 1.21.3
 ```
 
