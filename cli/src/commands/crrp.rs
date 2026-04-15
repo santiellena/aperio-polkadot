@@ -3,6 +3,7 @@ use alloy::{
 	providers::ProviderBuilder,
 	sol,
 };
+use blake2::{Blake2b512, Digest};
 use clap::{Args, ValueEnum};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -10,6 +11,7 @@ use std::{
 	fs,
 	path::{Path, PathBuf},
 	process::Command,
+	time::{SystemTime, UNIX_EPOCH},
 };
 
 sol! {
@@ -192,6 +194,13 @@ struct CrrpContext {
 	release_count: String,
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+struct WalletSession {
+	session_id: String,
+	created_at_unix_secs: u64,
+	wallet_label: String,
+}
+
 pub async fn run(
 	action: CrrpAction,
 	_ws_url: &str,
@@ -216,6 +225,9 @@ async fn run_propose(
 	eth_rpc_url: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
 	let ctx = preflight(&args.common, eth_rpc_url).await?;
+	if !args.dry_run {
+		ensure_wallet_session(&ctx.repo_root, "proposal submission")?;
+	}
 	let head = git_output(&ctx.repo_root, &["rev-parse", "HEAD"])?;
 	let base =
 		git_output(&ctx.repo_root, &["rev-parse", "HEAD~1"]).unwrap_or_else(|_| head.clone());
@@ -260,6 +272,7 @@ async fn run_fetch(args: FetchArgs, eth_rpc_url: &str) -> Result<(), Box<dyn std
 
 async fn run_review(args: ReviewArgs, eth_rpc_url: &str) -> Result<(), Box<dyn std::error::Error>> {
 	let ctx = preflight(&args.common, eth_rpc_url).await?;
+	ensure_wallet_session(&ctx.repo_root, "review submission")?;
 	println!("Reviewing proposal {}...", args.proposal_id);
 	println!("Repository: {}", ctx.repo_root.display());
 	println!("Repo ID: {:#x}", ctx.repo_id);
@@ -273,6 +286,9 @@ async fn run_review(args: ReviewArgs, eth_rpc_url: &str) -> Result<(), Box<dyn s
 
 async fn run_merge(args: MergeArgs, eth_rpc_url: &str) -> Result<(), Box<dyn std::error::Error>> {
 	let ctx = preflight(&args.common, eth_rpc_url).await?;
+	if !args.dry_run {
+		ensure_wallet_session(&ctx.repo_root, "proposal merge")?;
+	}
 	let head = git_output(&ctx.repo_root, &["rev-parse", "HEAD"])?;
 
 	println!("Merging proposal {}...", args.proposal_id);
@@ -311,6 +327,9 @@ async fn run_release(
 	eth_rpc_url: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
 	let ctx = preflight(&args.common, eth_rpc_url).await?;
+	if !args.dry_run {
+		ensure_wallet_session(&ctx.repo_root, "release creation")?;
+	}
 	println!("Creating release {}...", args.version);
 	println!("Repository: {}", ctx.repo_root.display());
 	println!("Repo ID: {:#x}", ctx.repo_id);
@@ -451,6 +470,10 @@ fn mock_state_path(repo_root: &Path) -> PathBuf {
 	repo_root.join(".crrp").join("mock-state.json")
 }
 
+fn wallet_session_path(repo_root: &Path) -> PathBuf {
+	repo_root.join(".crrp").join("wallet-session.json")
+}
+
 fn load_mock_state(repo_root: &Path) -> Result<MockState, Box<dyn std::error::Error>> {
 	let path = mock_state_path(repo_root);
 	if !path.exists() {
@@ -467,6 +490,110 @@ fn save_mock_state(repo_root: &Path, state: &MockState) -> Result<(), Box<dyn st
 	let path = mock_state_path(repo_root);
 	fs::write(path, serde_json::to_string_pretty(state)? + "\n")?;
 	Ok(())
+}
+
+fn load_wallet_session(
+	repo_root: &Path,
+) -> Result<Option<WalletSession>, Box<dyn std::error::Error>> {
+	let path = wallet_session_path(repo_root);
+	if !path.exists() {
+		return Ok(None);
+	}
+	let raw = fs::read_to_string(path)?;
+	Ok(Some(serde_json::from_str(&raw)?))
+}
+
+fn save_wallet_session(
+	repo_root: &Path,
+	session: &WalletSession,
+) -> Result<(), Box<dyn std::error::Error>> {
+	let dir = repo_root.join(".crrp");
+	fs::create_dir_all(&dir)?;
+	let path = wallet_session_path(repo_root);
+	fs::write(path, serde_json::to_string_pretty(session)? + "\n")?;
+	Ok(())
+}
+
+fn ensure_wallet_session(
+	repo_root: &Path,
+	action_label: &str,
+) -> Result<WalletSession, Box<dyn std::error::Error>> {
+	if let Some(session) = load_wallet_session(repo_root)? {
+		println!(
+			"Wallet session active ({}). Continuing with {}.",
+			session.session_id, action_label
+		);
+		return Ok(session);
+	}
+
+	println!("Wallet sign-in required for {}.", action_label);
+	println!("Scan this QR with your phone wallet to sign in:");
+	let session = create_mock_wallet_session(repo_root)?;
+	print_mock_qr(&session_uri(&session));
+	println!("Sign-in URI: {}", session_uri(&session));
+	save_wallet_session(repo_root, &session)?;
+	println!("Wallet connected (mock session {}).", session.session_id);
+	Ok(session)
+}
+
+fn create_mock_wallet_session(
+	repo_root: &Path,
+) -> Result<WalletSession, Box<dyn std::error::Error>> {
+	let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+	let mut hasher = Blake2b512::new();
+	hasher.update(repo_root.display().to_string().as_bytes());
+	hasher.update(now.to_le_bytes());
+	let digest = hasher.finalize();
+	let session_id = hex::encode(&digest[..8]);
+
+	Ok(WalletSession {
+		session_id,
+		created_at_unix_secs: now,
+		wallet_label: "pwallet-mock".to_string(),
+	})
+}
+
+fn session_uri(session: &WalletSession) -> String {
+	format!("crrp://wallet-connect?session={}&wallet={}", session.session_id, session.wallet_label)
+}
+
+fn print_mock_qr(payload: &str) {
+	let size = 25usize;
+	let mut bits = Vec::with_capacity(size * size);
+	let mut counter = 0u64;
+
+	while bits.len() < size * size {
+		let mut hasher = Blake2b512::new();
+		hasher.update(payload.as_bytes());
+		hasher.update(counter.to_le_bytes());
+		let digest = hasher.finalize();
+		for byte in digest {
+			for bit in 0..8 {
+				bits.push(((byte >> bit) & 1) == 1);
+				if bits.len() == size * size {
+					break;
+				}
+			}
+			if bits.len() == size * size {
+				break;
+			}
+		}
+		counter += 1;
+	}
+
+	println!("Mock QR:");
+	for y in 0..(size + 4) {
+		let mut line = String::with_capacity((size + 4) * 2);
+		for x in 0..(size + 4) {
+			let dark = if x < 2 || y < 2 || x >= size + 2 || y >= size + 2 {
+				true
+			} else {
+				bits[(y - 2) * size + (x - 2)]
+			};
+			line.push_str(if dark { "██" } else { "  " });
+		}
+		println!("{line}");
+	}
 }
 
 fn mock_repo_state_mut(state: &mut MockState, repo_id: FixedBytes<32>) -> &mut MockRepoState {
@@ -566,10 +693,14 @@ fn git_output(repo_root: &Path, args: &[&str]) -> Result<String, Box<dyn std::er
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use std::time::{SystemTime, UNIX_EPOCH};
+	use std::{
+		sync::atomic::{AtomicU64, Ordering},
+		time::{SystemTime, UNIX_EPOCH},
+	};
 
 	const TEST_REPO_ID_HEX: &str =
 		"0x1111111111111111111111111111111111111111111111111111111111111111";
+	static NEXT_TEMP_ID: AtomicU64 = AtomicU64::new(0);
 
 	struct TempRepo {
 		path: PathBuf,
@@ -578,7 +709,9 @@ mod tests {
 	impl TempRepo {
 		fn new() -> Result<Self, Box<dyn std::error::Error>> {
 			let nanos = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
-			let path = std::env::temp_dir().join(format!("crrp-cli-mock-test-{nanos}"));
+			let serial = NEXT_TEMP_ID.fetch_add(1, Ordering::Relaxed);
+			let path = std::env::temp_dir()
+				.join(format!("crrp-cli-mock-test-{}-{nanos}-{serial}", std::process::id()));
 			fs::create_dir_all(&path)?;
 
 			run_git(&path, &["init", "-b", "main"])?;
@@ -660,6 +793,7 @@ mod tests {
 		assert_eq!(repo_state.proposal_count, 1);
 		assert_eq!(repo_state.release_count, 1);
 		assert_eq!(repo_state.head_cid, "mock://merge/0");
+		assert!(load_wallet_session(&repo.path)?.is_some());
 
 		Ok(())
 	}
@@ -675,6 +809,45 @@ mod tests {
 		.expect_err("merge should fail when proposal is missing");
 
 		assert!(error.to_string().contains("proposal 0 not found"));
+		Ok(())
+	}
+
+	#[tokio::test]
+	async fn signature_hook_reuses_existing_wallet_session(
+	) -> Result<(), Box<dyn std::error::Error>> {
+		let repo = TempRepo::new()?;
+		let common = mock_common(&repo.path);
+
+		run_propose(ProposeArgs { common: common.clone(), dry_run: false }, "http://127.0.0.1:1")
+			.await?;
+		let first = load_wallet_session(&repo.path)?.expect("wallet session should exist");
+
+		run_review(
+			ReviewArgs {
+				common: common.clone(),
+				proposal_id: 0,
+				decision: ReviewDecision::Approve,
+			},
+			"http://127.0.0.1:1",
+		)
+		.await?;
+		run_merge(MergeArgs { common, proposal_id: 0, dry_run: false }, "http://127.0.0.1:1")
+			.await?;
+
+		let second = load_wallet_session(&repo.path)?.expect("wallet session should still exist");
+		assert_eq!(first.session_id, second.session_id);
+		Ok(())
+	}
+
+	#[tokio::test]
+	async fn dry_run_does_not_create_wallet_session() -> Result<(), Box<dyn std::error::Error>> {
+		let repo = TempRepo::new()?;
+		run_propose(
+			ProposeArgs { common: mock_common(&repo.path), dry_run: true },
+			"http://127.0.0.1:1",
+		)
+		.await?;
+		assert!(load_wallet_session(&repo.path)?.is_none());
 		Ok(())
 	}
 }
