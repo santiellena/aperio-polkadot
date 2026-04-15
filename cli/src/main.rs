@@ -57,12 +57,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			.await?
 		},
 		Commands::Fetch(args) => {
-			commands::crrp::run(
-				commands::crrp::CrrpAction::Fetch(args),
-				&cli.url,
-				&cli.eth_rpc_url,
-			)
-			.await?
+			commands::crrp::run(commands::crrp::CrrpAction::Fetch(args), &cli.url, &cli.eth_rpc_url)
+				.await?
 		},
 		Commands::Review(args) => {
 			commands::crrp::run(
@@ -73,12 +69,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			.await?
 		},
 		Commands::Merge(args) => {
-			commands::crrp::run(
-				commands::crrp::CrrpAction::Merge(args),
-				&cli.url,
-				&cli.eth_rpc_url,
-			)
-			.await?
+			commands::crrp::run(commands::crrp::CrrpAction::Merge(args), &cli.url, &cli.eth_rpc_url)
+				.await?
 		},
 		Commands::Release(args) => {
 			commands::crrp::run(
@@ -97,12 +89,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			.await?
 		},
 		Commands::Repo(args) => {
-			commands::crrp::run(
-				commands::crrp::CrrpAction::Repo(args),
-				&cli.url,
-				&cli.eth_rpc_url,
-			)
-			.await?
+			commands::crrp::run(commands::crrp::CrrpAction::Repo(args), &cli.url, &cli.eth_rpc_url)
+				.await?
 		},
 		Commands::Proposals(args) => {
 			commands::crrp::run(
