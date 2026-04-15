@@ -1,0 +1,14 @@
+{
+	"name": "crrp-wallet-bridge",
+	"private": true,
+	"type": "module",
+	"description": "WalletConnect bridge used by the Rust CRRP CLI for pwallet sign-in",
+	"scripts": {
+		"ensure-session": "node ./pwallet-bridge.mjs ensure-session"
+	},
+	"dependencies": {
+		"@walletconnect/sign-client": "^2.22.4",
+		"lokijs": "^1.5.12",
+		"qrcode-terminal": "^0.12.0"
+	}
+}
