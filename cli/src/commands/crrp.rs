@@ -608,6 +608,7 @@ fn ensure_pwallet_session(
 		)?;
 
 	let bridge_script = pwallet_bridge_script_path()?;
+	ensure_pwallet_bridge_dependencies(&bridge_script)?;
 	let session_file = pwallet_session_path(&ctx.repo_root);
 	let output = Command::new("node")
 		.arg(&bridge_script)
@@ -665,6 +666,29 @@ fn pwallet_bridge_script_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
 		return Err(format!("pwallet bridge script not found: {}", script_path.display()).into());
 	}
 	Ok(script_path)
+}
+
+fn ensure_pwallet_bridge_dependencies(
+	bridge_script: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+	let bridge_dir = bridge_script
+		.parent()
+		.ok_or_else(|| "Invalid pwallet bridge path".to_string())?;
+	let dependency_probe = bridge_dir
+		.join("node_modules")
+		.join("@walletconnect")
+		.join("sign-client")
+		.join("package.json");
+
+	if dependency_probe.exists() {
+		return Ok(());
+	}
+
+	Err(format!(
+		"pwallet bridge dependencies are missing. Run: cd {} && npm install",
+		bridge_dir.display()
+	)
+	.into())
 }
 
 fn create_mock_wallet_session(
