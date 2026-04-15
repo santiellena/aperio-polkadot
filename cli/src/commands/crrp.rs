@@ -562,3 +562,119 @@ fn git_output(repo_root: &Path, args: &[&str]) -> Result<String, Box<dyn std::er
 	}
 	Ok(String::from_utf8(output.stdout)?.trim().to_string())
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use std::time::{SystemTime, UNIX_EPOCH};
+
+	const TEST_REPO_ID_HEX: &str =
+		"0x1111111111111111111111111111111111111111111111111111111111111111";
+
+	struct TempRepo {
+		path: PathBuf,
+	}
+
+	impl TempRepo {
+		fn new() -> Result<Self, Box<dyn std::error::Error>> {
+			let nanos = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+			let path = std::env::temp_dir().join(format!("crrp-cli-mock-test-{nanos}"));
+			fs::create_dir_all(&path)?;
+
+			run_git(&path, &["init", "-b", "main"])?;
+			run_git(&path, &["config", "user.name", "CRRP Test"])?;
+			run_git(&path, &["config", "user.email", "crrp-test@example.com"])?;
+
+			fs::write(path.join("README.md"), "test\n")?;
+			run_git(&path, &["add", "README.md"])?;
+			run_git(&path, &["commit", "-m", "init"])?;
+
+			let crrp_dir = path.join(".crrp");
+			fs::create_dir_all(&crrp_dir)?;
+			fs::write(crrp_dir.join("repo-id"), format!("{TEST_REPO_ID_HEX}\n"))?;
+
+			Ok(Self { path })
+		}
+	}
+
+	impl Drop for TempRepo {
+		fn drop(&mut self) {
+			let _ = fs::remove_dir_all(&self.path);
+		}
+	}
+
+	fn run_git(repo_root: &Path, args: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
+		let output = Command::new("git").args(args).current_dir(repo_root).output()?;
+		if !output.status.success() {
+			let stderr = String::from_utf8(output.stderr)?;
+			return Err(format!("git {} failed: {}", args.join(" "), stderr.trim()).into());
+		}
+		Ok(())
+	}
+
+	fn mock_common(repo: &Path) -> CrrpCommonArgs {
+		CrrpCommonArgs { repo: Some(repo.to_path_buf()), repo_id: None, registry: None, mock: true }
+	}
+
+	fn test_repo_id() -> FixedBytes<32> {
+		TEST_REPO_ID_HEX.parse().expect("valid repo id")
+	}
+
+	#[tokio::test]
+	async fn preflight_uses_mock_backend_without_rpc() -> Result<(), Box<dyn std::error::Error>> {
+		let repo = TempRepo::new()?;
+
+		let ctx = preflight(&mock_common(&repo.path), "http://127.0.0.1:1").await?;
+		assert!(matches!(ctx.backend, Backend::Mock));
+		assert_eq!(ctx.registry, Address::ZERO);
+		assert_eq!(ctx.proposal_count, "0");
+		assert_eq!(ctx.release_count, "0");
+		assert_eq!(ctx.head_cid, "mock://head");
+
+		Ok(())
+	}
+
+	#[tokio::test]
+	async fn mock_lifecycle_updates_local_state() -> Result<(), Box<dyn std::error::Error>> {
+		let repo = TempRepo::new()?;
+		let common = mock_common(&repo.path);
+		let repo_id = test_repo_id();
+
+		run_propose(ProposeArgs { common: common.clone(), dry_run: false }, "http://127.0.0.1:1")
+			.await?;
+
+		run_merge(
+			MergeArgs { common: common.clone(), proposal_id: 0, dry_run: false },
+			"http://127.0.0.1:1",
+		)
+		.await?;
+
+		run_release(
+			ReleaseArgs { common, version: "v0.1.0".to_string(), dry_run: false },
+			"http://127.0.0.1:1",
+		)
+		.await?;
+
+		let state = load_mock_state(&repo.path)?;
+		let repo_state = state.repos.get(&repo_key(repo_id)).expect("repo state exists");
+		assert_eq!(repo_state.proposal_count, 1);
+		assert_eq!(repo_state.release_count, 1);
+		assert_eq!(repo_state.head_cid, "mock://merge/0");
+
+		Ok(())
+	}
+
+	#[tokio::test]
+	async fn mock_merge_rejects_unknown_proposal() -> Result<(), Box<dyn std::error::Error>> {
+		let repo = TempRepo::new()?;
+		let error = run_merge(
+			MergeArgs { common: mock_common(&repo.path), proposal_id: 0, dry_run: false },
+			"http://127.0.0.1:1",
+		)
+		.await
+		.expect_err("merge should fail when proposal is missing");
+
+		assert!(error.to_string().contains("proposal 0 not found"));
+		Ok(())
+	}
+}
