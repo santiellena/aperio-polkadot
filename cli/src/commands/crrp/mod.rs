@@ -1,5 +1,6 @@
 mod args;
 mod command;
+mod error;
 mod git;
 mod mock;
 mod model;
