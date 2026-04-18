@@ -1,30 +1,67 @@
 use std::{fs, path::PathBuf};
 
+use alloy::{
+	network::EthereumWallet,
+	primitives::{Address, FixedBytes},
+	providers::ProviderBuilder,
+	signers::local::PrivateKeySigner,
+	sol,
+};
+
+use crate::commands::config::{load_repo_config, read_repo_id_if_exists, write_repo_id};
 use crate::commands::{resolve_substrate_signer, upload_to_bulletin};
 
 use super::{
 	args::{
-		CrrpAction, FetchArgs, MergeArgs, ProposalsArgs, ProposeArgs, ReleaseArgs, RepoArgs,
-		ReviewArgs, StatusArgs,
+		CreateRepoArgs, CrrpAction, FetchArgs, MergeArgs, ProposalsArgs, ProposeArgs, ReleaseArgs,
+		RepoArgs, ReviewArgs, StatusArgs,
 	},
 	git::{
-		create_mock_bundle_submission, git_output, prepare_proposal, relative_repo_path,
-		unix_timestamp_secs,
+		create_mock_bundle_submission, detect_repo_root, git_output, prepare_proposal,
+		relative_repo_path, unix_timestamp_secs,
 	},
 	mock::{
 		load_mock_state, mock_proposal_status_label, mock_repo_state_mut, proposal_matches_filter,
 		repo_key, resolve_fetch_destination, save_mock_state,
 	},
-	model::{Backend, MockProposalState, MockProposalStatus},
-	preflight::preflight,
-	wallet::ensure_wallet_session,
+	model::{Backend, CrrpContext, MockProposalState, MockProposalStatus, MockRepoState},
+	preflight::{
+		preflight, resolve_eth_rpc_url, resolve_registry_address, resolve_repo_id,
+		resolve_wallet_backend,
+	},
+	wallet::{ensure_wallet_session, request_wallet_tx_approval},
 };
+
+// Well-known Substrate dev account private keys (Ethereum-format).
+// These are public test keys from standard dev mnemonics. Never use for production funds.
+const ALICE_KEY: &str = "0x5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133";
+const BOB_KEY: &str = "0x8075991ce870b93a8870eca0c0f91913d12f47948ca0fd25b49c6fa7cdbeee8b";
+const CHARLIE_KEY: &str = "0x0b6e18cafb6ed99687ec547bd28139cafbd3a4f28014f8640076aba0082bf262";
+
+sol! {
+	#[sol(rpc)]
+	contract CRRPRepositoryRegistryWrite {
+		function getRepo(
+			bytes32 repoId
+		) external view returns (
+			address maintainer,
+			bytes32 headCommit,
+			string memory headCid,
+			uint256 proposalCount,
+			uint256 releaseCount
+		);
+		function createRepo(bytes32 repoId, bytes32 initialHeadCommit, string calldata initialHeadCid) external;
+		function setContributorRole(bytes32 repoId, address account, bool enabled) external;
+		function setReviewerRole(bytes32 repoId, address account, bool enabled) external;
+	}
+}
 
 pub async fn run(
 	action: CrrpAction,
 	eth_rpc_url_override: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
 	match action {
+		CrrpAction::CreateRepo(args) => run_create_repo(args, eth_rpc_url_override).await?,
 		CrrpAction::Propose(args) => run_propose(args, eth_rpc_url_override).await?,
 		CrrpAction::Fetch(args) => run_fetch(args, eth_rpc_url_override).await?,
 		CrrpAction::Review(args) => run_review(args, eth_rpc_url_override).await?,
@@ -34,6 +71,172 @@ pub async fn run(
 		CrrpAction::Repo(args) => run_repo(args, eth_rpc_url_override).await?,
 		CrrpAction::Proposals(args) => run_proposals(args, eth_rpc_url_override).await?,
 	}
+
+	Ok(())
+}
+
+pub(super) async fn run_create_repo(
+	args: CreateRepoArgs,
+	eth_rpc_url_override: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+	let repo_root = detect_repo_root(args.common.repo.as_deref())?;
+	let repo_config = load_repo_config(&repo_root)?;
+	let branch = git_output(&repo_root, &["rev-parse", "--abbrev-ref", "HEAD"])?;
+	let allow_non_main = args.common.allow_non_main || repo_config.allow_non_main;
+	if branch != "main" && !allow_non_main {
+		return Err(format!(
+			"CRRP only supports main branch. Current branch: {branch}. Use --allow-non-main or set allowNonMain=true in .crrp/config.json for testing."
+		)
+		.into());
+	}
+
+	let repo_id = resolve_repo_id(args.common.repo_id.as_deref(), &repo_root)?;
+	assert_repo_id_compatible(&repo_root, repo_id)?;
+	let wallet_backend = resolve_wallet_backend(args.common.wallet_backend, &repo_config)?;
+	let papp_term_metadata = args
+		.common
+		.papp_term_metadata
+		.clone()
+		.or_else(|| repo_config.papp_term_metadata.clone());
+	let papp_term_endpoint = args
+		.common
+		.papp_term_endpoint
+		.clone()
+		.or_else(|| repo_config.papp_term_endpoint.clone());
+	let initial_commit_ref =
+		args.initial_commit.as_deref().map(str::trim).filter(|v| !v.is_empty());
+	let resolved_commit =
+		git_output(&repo_root, &["rev-parse", "--verify", initial_commit_ref.unwrap_or("HEAD")])?;
+	let initial_head_commit = commit_hex_to_bytes32(&resolved_commit)?;
+	let initial_head_cid = args.initial_cid.trim();
+	if initial_head_cid.is_empty() {
+		return Err("--initial-cid cannot be empty".into());
+	}
+
+	if args.common.mock {
+		let mut state = load_mock_state(&repo_root)?;
+		let key = repo_key(repo_id);
+		if state.repos.contains_key(&key) {
+			return Err(format!("Mock backend: repo {:#x} already exists.", repo_id).into());
+		}
+		state.repos.insert(
+			key,
+			MockRepoState { head_cid: initial_head_cid.to_string(), ..MockRepoState::default() },
+		);
+		save_mock_state(&repo_root, &state)?;
+		write_repo_id_if_missing(&repo_root, repo_id)?;
+
+		println!("Mock backend: repository created.");
+		println!("Repository: {}", repo_root.display());
+		println!("Repo ID: {:#x}", repo_id);
+		println!("Initial HEAD: {resolved_commit}");
+		println!("Initial CID: {initial_head_cid}");
+		return Ok(());
+	}
+
+	let signer = resolve_evm_signer(&args.signer)?;
+	let signer_address = signer.address();
+	let contributor = resolve_optional_address(args.contributor.as_deref(), signer_address)?;
+	let reviewer = resolve_optional_address(args.reviewer.as_deref(), contributor)?;
+	let eth_rpc_url = resolve_eth_rpc_url(eth_rpc_url_override, &repo_config);
+	let registry = resolve_registry_address(
+		args.common.registry.as_deref(),
+		repo_config.registry.as_deref(),
+		&repo_root,
+	)?;
+	let wallet = EthereumWallet::from(signer);
+	let provider = ProviderBuilder::new().wallet(wallet).connect_http(eth_rpc_url.parse()?);
+	let registry_contract = CRRPRepositoryRegistryWrite::new(registry, &provider);
+	match registry_contract.getRepo(repo_id).call().await {
+		Ok(existing_repo) => {
+			return Err(format!(
+				"Repo already exists on registry (maintainer {}). Use a different --repo-id or continue with this repo.",
+				existing_repo.maintainer
+			)
+			.into())
+		},
+		Err(error) => {
+			let message = error.to_string();
+			if !message.contains("Repo not found") {
+				return Err(format!(
+					"Failed to verify repo existence before create-repo: {error}"
+				)
+				.into());
+			}
+		},
+	}
+
+	let wallet_ctx = CrrpContext {
+		backend: Backend::Rpc,
+		repo_root: repo_root.clone(),
+		repo_id,
+		substrate_rpc_ws: String::new(),
+		registry,
+		maintainer: Address::ZERO,
+		head_commit: FixedBytes::ZERO,
+		head_cid: String::new(),
+		proposal_count: "0".to_string(),
+		release_count: "0".to_string(),
+		wallet_backend,
+		papp_term_metadata,
+		papp_term_endpoint,
+	};
+	let wallet_session = ensure_wallet_session(&wallet_ctx, "repository creation").await?;
+	let approval = request_wallet_tx_approval(
+		&wallet_ctx,
+		"CRRP create-repo signature request",
+		&format!(
+			"repo_id={:#x}, registry={}, initial_head={}, initial_cid={}, signer={}",
+			repo_id, registry, resolved_commit, initial_head_cid, signer_address
+		),
+	)
+	.await?;
+	let create_receipt = registry_contract
+		.createRepo(repo_id, initial_head_commit, initial_head_cid.to_string())
+		.send()
+		.await?
+		.get_receipt()
+		.await?;
+
+	println!("Repository created on-chain.");
+	println!("Repository: {}", repo_root.display());
+	println!("Repo ID: {:#x}", repo_id);
+	println!("Registry: {registry}");
+	println!("Signer: {signer_address}");
+	println!("Initial HEAD: {resolved_commit}");
+	println!("Initial CID: {initial_head_cid}");
+	println!("createRepo tx: {}", create_receipt.transaction_hash);
+	println!("Wallet session: {}", wallet_session.session_id);
+	println!("Wallet approval id: {}", approval.approval_id);
+	println!("Wallet approval timestamp: {}", approval.approved_at_unix_secs);
+	println!(
+		"Note: createRepo tx submission still uses --signer; pwallet signing submission is pending."
+	);
+
+	if !args.skip_role_grants {
+		let contributor_receipt = registry_contract
+			.setContributorRole(repo_id, contributor, true)
+			.send()
+			.await?
+			.get_receipt()
+			.await?;
+		let reviewer_receipt = registry_contract
+			.setReviewerRole(repo_id, reviewer, true)
+			.send()
+			.await?
+			.get_receipt()
+			.await?;
+		println!(
+			"Contributor role granted to {} (tx {}).",
+			contributor, contributor_receipt.transaction_hash
+		);
+		println!(
+			"Reviewer role granted to {} (tx {}).",
+			reviewer, reviewer_receipt.transaction_hash
+		);
+	}
+
+	write_repo_id_if_missing(&repo_root, repo_id)?;
 
 	Ok(())
 }
@@ -93,6 +296,17 @@ pub(super) async fn run_propose(
 		)?;
 		let signer = resolve_substrate_signer(signer_input)?;
 		let bundle_bytes = fs::read(&bundle_submission.bundle_path)?;
+		let approval = request_wallet_tx_approval(
+			&ctx,
+			"Bulletin upload signature request",
+			&format!(
+				"repo_id={:#x}, commit={}, bundle_bytes={}",
+				ctx.repo_id,
+				proposal.commit,
+				bundle_bytes.len()
+			),
+		)
+		.await?;
 		let extrinsic_hash =
 			upload_to_bulletin(&bundle_bytes, &ctx.substrate_rpc_ws, &signer).await?;
 
@@ -102,11 +316,106 @@ pub(super) async fn run_propose(
 		println!("Local bundle path: {}", bundle_submission.bundle_path.display());
 		println!("Local CID placeholder: {}", bundle_submission.cid);
 		println!("Wallet session: {}", wallet_session.session_id);
+		println!("Wallet approval id: {}", approval.approval_id);
+		println!("Wallet approval timestamp: {}", approval.approved_at_unix_secs);
+		println!(
+			"Note: extrinsic signing still uses --bulletin-signer; pwallet signing submission is pending."
+		);
 		println!(
 			"Contract submission step still pending: use proposal commit + Bulletin-backed artifact reference."
 		);
 	}
 
+	Ok(())
+}
+
+fn resolve_evm_signer(input: &str) -> Result<PrivateKeySigner, Box<dyn std::error::Error>> {
+	let trimmed = input.trim();
+	if trimmed.is_empty() {
+		return Err("Signer cannot be empty. Use alice/bob/charlie or a 0x private key.".into());
+	}
+
+	let lowered = trimmed.to_lowercase();
+	let key = match lowered.as_str() {
+		"alice" => ALICE_KEY,
+		"bob" => BOB_KEY,
+		"charlie" => CHARLIE_KEY,
+		_ => trimmed,
+	};
+
+	if !key.starts_with("0x") {
+		return Err(format!(
+			"Unknown signer {trimmed}. Use alice/bob/charlie or a 0x private key."
+		)
+		.into());
+	}
+
+	Ok(key.parse()?)
+}
+
+fn resolve_optional_address(
+	value: Option<&str>,
+	default_value: Address,
+) -> Result<Address, Box<dyn std::error::Error>> {
+	match value.map(str::trim).filter(|v| !v.is_empty()) {
+		Some(raw) => Ok(raw.parse()?),
+		None => Ok(default_value),
+	}
+}
+
+fn commit_hex_to_bytes32(commit: &str) -> Result<FixedBytes<32>, Box<dyn std::error::Error>> {
+	let trimmed = commit.trim();
+	let hex = trimmed.strip_prefix("0x").or(trimmed.strip_prefix("0X")).unwrap_or(trimmed);
+	if !hex.chars().all(|c| c.is_ascii_hexdigit()) {
+		return Err(format!(
+			"Invalid commit hash {trimmed}. Expected a hex-encoded Git commit hash."
+		)
+		.into());
+	}
+
+	let canonical = match hex.len() {
+		// Git SHA-1 object ids: preserve value and pad left to bytes32.
+		40 => format!("{hex:0>64}"),
+		// Git SHA-256 object ids (or already canonical bytes32).
+		64 => hex.to_string(),
+		other => {
+			return Err(format!(
+				"Unsupported commit hash length {other} for {trimmed}. Expected 40 (SHA-1) or 64 (SHA-256) hex chars."
+			)
+			.into())
+		},
+	};
+
+	Ok(format!("0x{canonical}").parse()?)
+}
+
+fn assert_repo_id_compatible(
+	repo_root: &std::path::Path,
+	repo_id: FixedBytes<32>,
+) -> Result<(), Box<dyn std::error::Error>> {
+	let expected = format!("{:#x}", repo_id);
+	match read_repo_id_if_exists(repo_root)? {
+		Some(existing) => {
+			if !existing.eq_ignore_ascii_case(&expected) {
+				return Err(format!(
+					"Repo ID mismatch: .crrp/repo-id has {existing} but command resolved {expected}."
+				)
+				.into());
+			}
+		},
+		None => {},
+	}
+
+	Ok(())
+}
+
+fn write_repo_id_if_missing(
+	repo_root: &std::path::Path,
+	repo_id: FixedBytes<32>,
+) -> Result<(), Box<dyn std::error::Error>> {
+	if read_repo_id_if_exists(repo_root)?.is_none() {
+		write_repo_id(repo_root, &format!("{:#x}", repo_id))?;
+	}
 	Ok(())
 }
 

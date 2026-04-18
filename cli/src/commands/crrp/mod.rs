@@ -10,7 +10,7 @@ mod wallet;
 mod tests;
 
 pub use args::{
-	CrrpAction, FetchArgs, MergeArgs, ProposalsArgs, ProposeArgs, ReleaseArgs, RepoArgs,
-	ReviewArgs, StatusArgs,
+	CreateRepoArgs, CrrpAction, FetchArgs, MergeArgs, ProposalsArgs, ProposeArgs, ReleaseArgs,
+	RepoArgs, ReviewArgs, StatusArgs,
 };
 pub use command::run;

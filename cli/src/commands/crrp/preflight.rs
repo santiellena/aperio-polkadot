@@ -18,7 +18,7 @@ use super::{
 	model::{Backend, CrrpContext},
 };
 
-const DEFAULT_ETH_RPC_HTTP: &str = "http://127.0.0.1:8545";
+pub(super) const DEFAULT_ETH_RPC_HTTP: &str = "http://127.0.0.1:8545";
 const DEFAULT_SUBSTRATE_RPC_WS: &str = "ws://127.0.0.1:9944";
 
 sol! {
@@ -66,10 +66,7 @@ pub(super) async fn preflight(
 		.papp_term_endpoint
 		.clone()
 		.or_else(|| repo_config.papp_term_endpoint.clone());
-	let eth_rpc_url = eth_rpc_url_override
-		.map(str::to_string)
-		.or_else(|| repo_config.eth_rpc_http.clone())
-		.unwrap_or_else(|| DEFAULT_ETH_RPC_HTTP.to_string());
+	let eth_rpc_url = resolve_eth_rpc_url(eth_rpc_url_override, &repo_config);
 	let substrate_rpc_ws = repo_config
 		.substrate_rpc_ws
 		.clone()
@@ -133,7 +130,7 @@ pub(super) async fn preflight(
 	})
 }
 
-fn resolve_wallet_backend(
+pub(super) fn resolve_wallet_backend(
 	override_backend: Option<WalletBackend>,
 	repo_config: &RepoConfig,
 ) -> Result<WalletBackend, Box<dyn std::error::Error>> {
@@ -156,7 +153,7 @@ fn parse_wallet_backend(value: &str) -> Result<WalletBackend, Box<dyn std::error
 	}
 }
 
-fn resolve_repo_id(
+pub(super) fn resolve_repo_id(
 	repo_id_override: Option<&str>,
 	repo_root: &Path,
 ) -> Result<FixedBytes<32>, Box<dyn std::error::Error>> {
@@ -177,7 +174,7 @@ fn resolve_repo_id(
 	Ok(value.expect("checked above").parse()?)
 }
 
-fn resolve_registry_address(
+pub(super) fn resolve_registry_address(
 	registry_override: Option<&str>,
 	config_registry: Option<&str>,
 	repo_root: &Path,
@@ -221,4 +218,11 @@ fn registry_candidates(repo_root: &Path) -> Vec<PathBuf> {
 		repo_root.join("deployments.json"),
 		PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../deployments.json"),
 	]
+}
+
+pub(super) fn resolve_eth_rpc_url(override_url: Option<&str>, repo_config: &RepoConfig) -> String {
+	override_url
+		.map(str::to_string)
+		.or_else(|| repo_config.eth_rpc_http.clone())
+		.unwrap_or_else(|| DEFAULT_ETH_RPC_HTTP.to_string())
 }

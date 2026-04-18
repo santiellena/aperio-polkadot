@@ -28,6 +28,8 @@ enum Commands {
 		#[command(subcommand)]
 		action: commands::config::ConfigAction,
 	},
+	/// Create/register a repository in the CRRP registry
+	CreateRepo(commands::crrp::CreateRepoArgs),
 	/// Submit a proposal (skeleton)
 	Propose(commands::crrp::ProposeArgs),
 	/// Fetch proposal artifact and import to local Git (skeleton)
@@ -57,6 +59,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	match cli.command {
 		Commands::Config { action } => commands::config::run(action)?,
+		Commands::CreateRepo(args) => {
+			commands::crrp::run(
+				commands::crrp::CrrpAction::CreateRepo(args),
+				cli.eth_rpc_url.as_deref(),
+			)
+			.await?
+		},
 		Commands::Propose(args) => {
 			commands::crrp::run(
 				commands::crrp::CrrpAction::Propose(args),

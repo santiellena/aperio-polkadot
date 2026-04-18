@@ -10,10 +10,10 @@ use alloy::primitives::{Address, FixedBytes};
 
 use super::{
 	args::{
-		CrrpCommonArgs, FetchArgs, MergeArgs, ProposeArgs, ReleaseArgs, ReviewArgs, ReviewDecision,
-		WalletBackend,
+		CreateRepoArgs, CrrpCommonArgs, FetchArgs, MergeArgs, ProposeArgs, ReleaseArgs, ReviewArgs,
+		ReviewDecision, WalletBackend,
 	},
-	command::{run_fetch, run_merge, run_propose, run_release, run_review},
+	command::{run_create_repo, run_fetch, run_merge, run_propose, run_release, run_review},
 	git::{git_output, short_commit_id},
 	mock::{load_mock_state, repo_key},
 	model::{Backend, MockProposalState, MockProposalStatus},
@@ -129,6 +129,103 @@ async fn preflight_uses_mock_backend_without_rpc() -> Result<(), Box<dyn std::er
 	assert_eq!(ctx.release_count, "0");
 	assert_eq!(ctx.head_cid, "mock://head");
 
+	Ok(())
+}
+
+#[tokio::test]
+async fn mock_create_repo_initializes_state() -> Result<(), Box<dyn std::error::Error>> {
+	let repo = TempRepo::new()?;
+	let common = mock_common(&repo.path);
+
+	run_create_repo(
+		CreateRepoArgs {
+			common: common.clone(),
+			initial_commit: None,
+			initial_cid: "mock://init".to_string(),
+			signer: "alice".to_string(),
+			contributor: None,
+			reviewer: None,
+			skip_role_grants: false,
+		},
+		Some("http://127.0.0.1:1"),
+	)
+	.await?;
+
+	let state = load_mock_state(&repo.path)?;
+	let repo_state = state
+		.repos
+		.get(&repo_key(test_repo_id()))
+		.ok_or("expected mock repo state to exist")?;
+	assert_eq!(repo_state.proposal_count, 0);
+	assert_eq!(repo_state.release_count, 0);
+	assert_eq!(repo_state.head_cid, "mock://init");
+
+	Ok(())
+}
+
+#[tokio::test]
+async fn mock_create_repo_rejects_duplicate_repo() -> Result<(), Box<dyn std::error::Error>> {
+	let repo = TempRepo::new()?;
+	run_create_repo(
+		CreateRepoArgs {
+			common: mock_common(&repo.path),
+			initial_commit: None,
+			initial_cid: "mock://init".to_string(),
+			signer: "alice".to_string(),
+			contributor: None,
+			reviewer: None,
+			skip_role_grants: false,
+		},
+		Some("http://127.0.0.1:1"),
+	)
+	.await?;
+	let error = run_create_repo(
+		CreateRepoArgs {
+			common: mock_common(&repo.path),
+			initial_commit: None,
+			initial_cid: "mock://init".to_string(),
+			signer: "alice".to_string(),
+			contributor: None,
+			reviewer: None,
+			skip_role_grants: false,
+		},
+		Some("http://127.0.0.1:1"),
+	)
+	.await
+	.expect_err("creating an existing mock repo should fail");
+	assert!(error.to_string().contains("already exists"));
+
+	Ok(())
+}
+
+#[tokio::test]
+async fn create_repo_fails_fast_on_repo_id_mismatch() -> Result<(), Box<dyn std::error::Error>> {
+	let repo = TempRepo::new()?;
+	let mut common = mock_common(&repo.path);
+	common.repo_id =
+		Some("0x2222222222222222222222222222222222222222222222222222222222222222".to_string());
+
+	let error = run_create_repo(
+		CreateRepoArgs {
+			common,
+			initial_commit: None,
+			initial_cid: "mock://init".to_string(),
+			signer: "alice".to_string(),
+			contributor: None,
+			reviewer: None,
+			skip_role_grants: false,
+		},
+		Some("http://127.0.0.1:1"),
+	)
+	.await
+	.expect_err("repo id mismatch should fail before any create-repo side effects");
+	assert!(error.to_string().contains("Repo ID mismatch"));
+
+	let state = load_mock_state(&repo.path)?;
+	assert!(
+		state.repos.is_empty(),
+		"mock state should remain unchanged when repo-id mismatch fails"
+	);
 	Ok(())
 }
 

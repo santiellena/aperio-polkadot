@@ -2,6 +2,8 @@ use clap::{Args, ValueEnum};
 
 #[derive(clap::Subcommand)]
 pub enum CrrpAction {
+	/// Create/register a repository in the on-chain CRRP registry.
+	CreateRepo(CreateRepoArgs),
 	/// Prepare and submit a repository proposal (skeleton).
 	Propose(ProposeArgs),
 	/// Fetch a proposal bundle (skeleton).
@@ -18,6 +20,30 @@ pub enum CrrpAction {
 	Repo(RepoArgs),
 	/// List proposals for the current repository (skeleton).
 	Proposals(ProposalsArgs),
+}
+
+#[derive(Args)]
+pub struct CreateRepoArgs {
+	#[command(flatten)]
+	pub common: CrrpCommonArgs,
+	/// Initial canonical commit (Git rev; defaults to HEAD).
+	#[arg(long)]
+	pub initial_commit: Option<String>,
+	/// Initial CID pointer for canonical HEAD.
+	#[arg(long, default_value = "mock://init")]
+	pub initial_cid: String,
+	/// EVM signer for registry write tx: dev name (alice/bob/charlie) or 0x private key.
+	#[arg(long, default_value = "alice")]
+	pub signer: String,
+	/// Contributor role grantee (defaults to signer address).
+	#[arg(long)]
+	pub contributor: Option<String>,
+	/// Reviewer role grantee (defaults to contributor/signer address).
+	#[arg(long)]
+	pub reviewer: Option<String>,
+	/// Skip contributor/reviewer role grants after repo creation.
+	#[arg(long, default_value_t = false)]
+	pub skip_role_grants: bool,
 }
 
 #[derive(Clone, Args)]
