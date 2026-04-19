@@ -8,7 +8,9 @@ use alloy::{
 	sol,
 };
 
-use crate::commands::config::{load_repo_config, read_repo_id_if_exists, write_repo_id};
+use crate::commands::config::{
+	load_repo_config, read_repo_slug_if_exists, write_repo_id, write_repo_slug, RepoSlug,
+};
 
 use super::{
 	super::{
@@ -17,7 +19,8 @@ use super::{
 		mock::{load_mock_state, repo_key, save_mock_state},
 		model::{Backend, CrrpContext, MockRepoState},
 		preflight::{
-			resolve_eth_rpc_url, resolve_registry_address, resolve_repo_id, resolve_wallet_backend,
+			resolve_eth_rpc_url, resolve_registry_address, resolve_repo_identity,
+			resolve_wallet_backend,
 		},
 		wallet::request_wallet_tx_approval,
 	},
@@ -25,8 +28,6 @@ use super::{
 	CrrpResult,
 };
 
-// Well-known Substrate dev account private keys (Ethereum-format).
-// These are public test keys from standard dev mnemonics. Never use for production funds.
 const ALICE_KEY: &str = "0x5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133";
 const BOB_KEY: &str = "0x8075991ce870b93a8870eca0c0f91913d12f47948ca0fd25b49c6fa7cdbeee8b";
 const CHARLIE_KEY: &str = "0x0b6e18cafb6ed99687ec547bd28139cafbd3a4f28014f8640076aba0082bf262";
@@ -43,7 +44,12 @@ sol! {
 			uint256 proposalCount,
 			uint256 releaseCount
 		);
-		function createRepo(bytes32 repoId, bytes32 initialHeadCommit, string calldata initialHeadCid) external;
+		function createRepo(
+			string calldata organization,
+			string calldata repository,
+			bytes32 initialHeadCommit,
+			string calldata initialHeadCid
+		) external;
 		function setContributorRole(bytes32 repoId, address account, bool enabled) external;
 		function setReviewerRole(bytes32 repoId, address account, bool enabled) external;
 	}
@@ -64,8 +70,13 @@ pub(crate) async fn run_create_repo(
 		.into());
 	}
 
-	let repo_id = resolve_repo_id(args.common.repo_id.as_deref(), &repo_root)?;
-	assert_repo_id_compatible(&repo_root, repo_id)?;
+	let repo = resolve_repo_identity(
+		args.common.organization.as_deref(),
+		args.common.repository.as_deref(),
+		args.common.repo_id.as_deref(),
+		&repo_root,
+	)?;
+	assert_repo_slug_compatible(&repo_root, &repo.organization, &repo.repository)?;
 	let wallet_backend = resolve_wallet_backend(args.common.wallet_backend, &repo_config)?;
 	let papp_term_metadata = args
 		.common
@@ -89,20 +100,21 @@ pub(crate) async fn run_create_repo(
 
 	if args.common.mock {
 		let mut state = load_mock_state(&repo_root)?;
-		let key = repo_key(repo_id);
+		let key = repo_key(repo.repo_id);
 		if state.repos.contains_key(&key) {
-			return Err(format!("Mock backend: repo {:#x} already exists.", repo_id).into());
+			return Err(format!("Mock backend: repo {:#x} already exists.", repo.repo_id).into());
 		}
 		state.repos.insert(
 			key,
 			MockRepoState { head_cid: initial_head_cid.to_string(), ..MockRepoState::default() },
 		);
 		save_mock_state(&repo_root, &state)?;
-		write_repo_id_if_missing(&repo_root, repo_id)?;
+		write_repo_identity(&repo_root, &repo.organization, &repo.repository, repo.repo_id)?;
 
 		line("Mock backend: repository created.");
 		kv("Repository", repo_root.display());
-		kv("Repo ID", format!("{:#x}", repo_id));
+		kv("Repository slug", format!("{}/{}", repo.organization, repo.repository));
+		kv("Repo ID", format!("{:#x}", repo.repo_id));
 		kv("Initial HEAD", resolved_commit);
 		kv("Initial CID", initial_head_cid);
 		return Ok(());
@@ -129,7 +141,9 @@ pub(crate) async fn run_create_repo(
 	let wallet_ctx = CrrpContext {
 		backend: Backend::Rpc,
 		repo_root: repo_root.clone(),
-		repo_id,
+		organization: repo.organization.clone(),
+		repository: repo.repository.clone(),
+		repo_id: repo.repo_id,
 		substrate_rpc_ws: String::new(),
 		registry,
 		maintainer: Address::ZERO,
@@ -145,8 +159,14 @@ pub(crate) async fn run_create_repo(
 		&wallet_ctx,
 		"CRRP create-repo signature request",
 		&format!(
-			"repo_id={:#x}, registry={}, initial_head={}, initial_cid={}, signer={}",
-			repo_id, registry, resolved_commit, initial_head_cid, signer_address
+			"repo={}/{}, repo_id={:#x}, registry={}, initial_head={}, initial_cid={}, signer={}",
+			repo.organization,
+			repo.repository,
+			repo.repo_id,
+			registry,
+			resolved_commit,
+			initial_head_cid,
+			signer_address
 		),
 	)
 	.await?;
@@ -154,7 +174,8 @@ pub(crate) async fn run_create_repo(
 	if args.transport_only {
 		line("Transport-only test completed.");
 		kv("Repository", repo_root.display());
-		kv("Repo ID", format!("{:#x}", repo_id));
+		kv("Repository slug", format!("{}/{}", repo.organization, repo.repository));
+		kv("Repo ID", format!("{:#x}", repo.repo_id));
 		kv("Registry", registry);
 		kv("Initial HEAD", resolved_commit);
 		kv("Initial CID", initial_head_cid);
@@ -175,10 +196,10 @@ pub(crate) async fn run_create_repo(
 	let wallet = EthereumWallet::from(signer);
 	let provider = ProviderBuilder::new().wallet(wallet).connect_http(eth_rpc_url.parse()?);
 	let registry_contract = CRRPRepositoryRegistryWrite::new(registry, &provider);
-	match registry_contract.getRepo(repo_id).call().await {
+	match registry_contract.getRepo(repo.repo_id).call().await {
 		Ok(existing_repo) => {
 			return Err(format!(
-				"Repo already exists on registry (maintainer {}). Use a different --repo-id or continue with this repo.",
+				"Repo already exists on registry (maintainer {}). Use a different repository slug or continue with this repo.",
 				existing_repo.maintainer
 			)
 			.into())
@@ -194,7 +215,12 @@ pub(crate) async fn run_create_repo(
 	}
 
 	let create_receipt = registry_contract
-		.createRepo(repo_id, initial_head_commit, initial_head_cid.to_string())
+		.createRepo(
+			repo.organization.clone(),
+			repo.repository.clone(),
+			initial_head_commit,
+			initial_head_cid.to_string(),
+		)
 		.send()
 		.await?
 		.get_receipt()
@@ -202,7 +228,8 @@ pub(crate) async fn run_create_repo(
 
 	line("Repository created on-chain.");
 	kv("Repository", repo_root.display());
-	kv("Repo ID", format!("{:#x}", repo_id));
+	kv("Repository slug", format!("{}/{}", repo.organization, repo.repository));
+	kv("Repo ID", format!("{:#x}", repo.repo_id));
 	kv("Registry", registry);
 	kv("Signer", signer_address);
 	kv("Initial HEAD", resolved_commit);
@@ -221,7 +248,7 @@ pub(crate) async fn run_create_repo(
 
 	if !args.skip_role_grants {
 		let contributor_receipt = registry_contract
-			.setContributorRole(repo_id, contributor, true)
+			.setContributorRole(repo.repo_id, contributor, true)
 			.send()
 			.await
 			.map_err(|error| {
@@ -235,7 +262,7 @@ pub(crate) async fn run_create_repo(
 				)
 			})?;
 		let reviewer_receipt = registry_contract
-			.setReviewerRole(repo_id, reviewer, true)
+			.setReviewerRole(repo.repo_id, reviewer, true)
 			.send()
 			.await
 			.map_err(|error| {
@@ -258,7 +285,7 @@ pub(crate) async fn run_create_repo(
 		));
 	}
 
-	write_repo_id_if_missing(&repo_root, repo_id)?;
+	write_repo_identity(&repo_root, &repo.organization, &repo.repository, repo.repo_id)?;
 	Ok(())
 }
 
@@ -307,9 +334,7 @@ fn commit_hex_to_bytes32(commit: &str) -> Result<FixedBytes<32>, Box<dyn std::er
 	}
 
 	let canonical = match hex.len() {
-		// Git SHA-1 object ids: preserve value and pad left to bytes32.
 		40 => format!("{hex:0>64}"),
-		// Git SHA-256 object ids (or already canonical bytes32).
 		64 => hex.to_string(),
 		other => {
 			return Err(format!(
@@ -322,12 +347,12 @@ fn commit_hex_to_bytes32(commit: &str) -> Result<FixedBytes<32>, Box<dyn std::er
 	Ok(format!("0x{canonical}").parse()?)
 }
 
-fn assert_repo_id_compatible(repo_root: &Path, repo_id: FixedBytes<32>) -> CrrpResult {
-	let expected = format!("{:#x}", repo_id);
-	if let Some(existing) = read_repo_id_if_exists(repo_root)? {
-		if !existing.eq_ignore_ascii_case(&expected) {
+fn assert_repo_slug_compatible(repo_root: &Path, organization: &str, repository: &str) -> CrrpResult {
+	if let Some(existing) = read_repo_slug_if_exists(repo_root)? {
+		if existing.organization != organization || existing.repository != repository {
 			return Err(format!(
-				"Repo ID mismatch: .crrp/repo-id has {existing} but command resolved {expected}."
+				"Repository slug mismatch: .crrp/repo-slug.json has {}/{} but command resolved {}/{}.",
+				existing.organization, existing.repository, organization, repository
 			)
 			.into());
 		}
@@ -336,9 +361,16 @@ fn assert_repo_id_compatible(repo_root: &Path, repo_id: FixedBytes<32>) -> CrrpR
 	Ok(())
 }
 
-fn write_repo_id_if_missing(repo_root: &Path, repo_id: FixedBytes<32>) -> CrrpResult {
-	if read_repo_id_if_exists(repo_root)?.is_none() {
-		write_repo_id(repo_root, &format!("{:#x}", repo_id))?;
-	}
+fn write_repo_identity(
+	repo_root: &Path,
+	organization: &str,
+	repository: &str,
+	repo_id: FixedBytes<32>,
+) -> CrrpResult {
+	write_repo_slug(
+		repo_root,
+		&RepoSlug { organization: organization.to_string(), repository: repository.to_string() },
+	)?;
+	write_repo_id(repo_root, &format!("{:#x}", repo_id))?;
 	Ok(())
 }

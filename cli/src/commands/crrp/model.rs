@@ -52,6 +52,8 @@ pub(super) enum MockProposalStatus {
 pub(super) struct CrrpContext {
 	pub backend: Backend,
 	pub repo_root: PathBuf,
+	pub organization: String,
+	pub repository: String,
 	pub repo_id: FixedBytes<32>,
 	pub substrate_rpc_ws: String,
 	pub registry: Address,

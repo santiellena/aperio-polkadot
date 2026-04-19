@@ -30,9 +30,12 @@ pub struct ConfigInitArgs {
 	/// Prompt interactively for missing values.
 	#[arg(long, default_value_t = false)]
 	pub interactive: bool,
-	/// Repo ID bytes32 value to write into .crrp/repo-id.
+	/// Repository organization slug used to derive the CRRP repo id.
 	#[arg(long)]
-	pub repo_id: Option<String>,
+	pub organization: Option<String>,
+	/// Repository name slug used to derive the CRRP repo id.
+	#[arg(long)]
+	pub repository: Option<String>,
 	/// Default registry contract address.
 	#[arg(long)]
 	pub registry: Option<String>,
@@ -98,6 +101,16 @@ pub fn repo_id_path(repo_root: &Path) -> PathBuf {
 	repo_root.join(".crrp").join("repo-id")
 }
 
+pub fn repo_slug_path(repo_root: &Path) -> PathBuf {
+	repo_root.join(".crrp").join("repo-slug.json")
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, PartialEq)]
+pub struct RepoSlug {
+	pub organization: String,
+	pub repository: String,
+}
+
 pub fn load_repo_config(repo_root: &Path) -> Result<RepoConfig, Box<dyn std::error::Error>> {
 	let path = repo_config_path(repo_root);
 	if !path.exists() {
@@ -141,10 +154,41 @@ pub fn write_repo_id(repo_root: &Path, repo_id: &str) -> Result<(), Box<dyn std:
 	Ok(())
 }
 
+pub fn read_repo_slug_if_exists(
+	repo_root: &Path,
+) -> Result<Option<RepoSlug>, Box<dyn std::error::Error>> {
+	let path = repo_slug_path(repo_root);
+	if !path.exists() {
+		return Ok(None);
+	}
+
+	let raw = fs::read_to_string(path)?;
+	let slug: RepoSlug = serde_json::from_str(&raw)?;
+	if slug.organization.trim().is_empty() || slug.repository.trim().is_empty() {
+		return Ok(None);
+	}
+
+	Ok(Some(RepoSlug {
+		organization: slug.organization.trim().to_string(),
+		repository: slug.repository.trim().to_string(),
+	}))
+}
+
+pub fn write_repo_slug(
+	repo_root: &Path,
+	repo_slug: &RepoSlug,
+) -> Result<(), Box<dyn std::error::Error>> {
+	let crrp_dir = repo_root.join(".crrp");
+	fs::create_dir_all(&crrp_dir)?;
+	let path = repo_slug_path(repo_root);
+	fs::write(path, serde_json::to_string_pretty(repo_slug)? + "\n")?;
+	Ok(())
+}
+
 fn run_init(args: ConfigInitArgs) -> Result<(), Box<dyn std::error::Error>> {
 	let repo_root = detect_repo_root(args.repo.as_deref())?;
 	let mut config = load_repo_config(&repo_root)?;
-	let mut repo_id = read_repo_id_if_exists(&repo_root)?;
+	let mut repo_slug = read_repo_slug_if_exists(&repo_root)?;
 
 	if let Some(value) = normalize_optional(args.registry) {
 		config.registry = Some(value);
@@ -167,12 +211,26 @@ fn run_init(args: ConfigInitArgs) -> Result<(), Box<dyn std::error::Error>> {
 	if let Some(value) = args.allow_non_main {
 		config.allow_non_main = value;
 	}
-	if let Some(value) = normalize_optional(args.repo_id) {
-		repo_id = Some(value);
+	if let Some(value) = normalize_optional(args.organization) {
+		let mut slug = repo_slug.unwrap_or_default();
+		slug.organization = value;
+		repo_slug = Some(slug);
+	}
+	if let Some(value) = normalize_optional(args.repository) {
+		let mut slug = repo_slug.unwrap_or_default();
+		slug.repository = value;
+		repo_slug = Some(slug);
 	}
 
 	if args.interactive {
-		repo_id = prompt_optional("Repo ID (0x bytes32)", repo_id.as_deref())?;
+		let current_organization = repo_slug.as_ref().map(|slug| slug.organization.as_str());
+		let current_repository = repo_slug.as_ref().map(|slug| slug.repository.as_str());
+		let organization = prompt_optional("Repository organization", current_organization)?;
+		let repository = prompt_optional("Repository name", current_repository)?;
+		repo_slug = match (organization, repository) {
+			(Some(organization), Some(repository)) => Some(RepoSlug { organization, repository }),
+			_ => None,
+		};
 		config.registry = prompt_optional("Registry address", config.registry.as_deref())?;
 		config.substrate_rpc_ws =
 			prompt_optional("Default Substrate RPC URL", config.substrate_rpc_ws.as_deref())?;
@@ -199,14 +257,17 @@ fn run_init(args: ConfigInitArgs) -> Result<(), Box<dyn std::error::Error>> {
 	}
 
 	save_repo_config(&repo_root, &config)?;
-	if let Some(value) = repo_id {
-		write_repo_id(&repo_root, &value)?;
+	if let Some(value) = repo_slug.as_ref() {
+		write_repo_slug(&repo_root, value)?;
 	}
 
 	println!("CRRP configuration updated.");
 	println!("Repo root: {}", repo_root.display());
 	println!("Config file: {}", repo_config_path(&repo_root).display());
-	println!("Repo ID file: {}", repo_id_path(&repo_root).display());
+	println!("Repo slug file: {}", repo_slug_path(&repo_root).display());
+	if let Some(slug) = repo_slug {
+		println!("Repository slug: {}/{}", slug.organization, slug.repository);
+	}
 	println!(
 		"allow_non_main: {}",
 		if config.allow_non_main { "true (testing enabled)" } else { "false" }
@@ -218,11 +279,18 @@ fn run_init(args: ConfigInitArgs) -> Result<(), Box<dyn std::error::Error>> {
 fn run_show(args: ConfigShowArgs) -> Result<(), Box<dyn std::error::Error>> {
 	let repo_root = detect_repo_root(args.repo.as_deref())?;
 	let config = load_repo_config(&repo_root)?;
+	let repo_slug = read_repo_slug_if_exists(&repo_root)?;
 	let repo_id = read_repo_id_if_exists(&repo_root)?;
 	let formatted = serde_json::to_string_pretty(&config)?;
 
 	println!("Repo root: {}", repo_root.display());
-	println!("Repo ID: {}", repo_id.unwrap_or_else(|| "<not set>".to_string()));
+	println!(
+		"Repository slug: {}",
+		repo_slug
+			.map(|slug| format!("{}/{}", slug.organization, slug.repository))
+			.unwrap_or_else(|| "<not set>".to_string())
+	);
+	println!("Derived Repo ID: {}", repo_id.unwrap_or_else(|| "<not set>".to_string()));
 	println!("Config file: {}", repo_config_path(&repo_root).display());
 	println!("{formatted}");
 
@@ -373,14 +441,17 @@ mod tests {
 	}
 
 	#[test]
-	fn repo_id_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
+	fn repo_slug_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
 		let repo = TempDir::new()?;
-		let repo_id = "0x1111111111111111111111111111111111111111111111111111111111111111";
+		let repo_slug = RepoSlug {
+			organization: "openai".to_string(),
+			repository: "crrp".to_string(),
+		};
 
-		write_repo_id(&repo.path, repo_id)?;
-		let restored = read_repo_id_if_exists(&repo.path)?;
+		write_repo_slug(&repo.path, &repo_slug)?;
+		let restored = read_repo_slug_if_exists(&repo.path)?;
 
-		assert_eq!(restored.as_deref(), Some(repo_id));
+		assert_eq!(restored, Some(repo_slug));
 		Ok(())
 	}
 }

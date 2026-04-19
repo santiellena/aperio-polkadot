@@ -9,6 +9,7 @@ pub(crate) async fn run_repo(args: RepoArgs, eth_rpc_url_override: Option<&str>)
 	line("CRRP Repo (skeleton)");
 	kv("Backend", backend_label(ctx.backend));
 	kv("Repository", ctx.repo_root.display());
+	kv("Repository slug", format!("{}/{}", ctx.organization, ctx.repository));
 	kv("Repo ID", format!("{:#x}", ctx.repo_id));
 	kv("Registry", ctx.registry);
 	kv("Maintainer", ctx.maintainer);

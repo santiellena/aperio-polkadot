@@ -55,7 +55,13 @@ pub struct CrrpCommonArgs {
 	/// Optional repository path (defaults to current directory).
 	#[arg(long)]
 	pub repo: Option<std::path::PathBuf>,
-	/// Optional repo ID override (0x-prefixed bytes32). Defaults to .crrp/repo-id.
+	/// Optional repository organization override. Defaults to .crrp/repo-slug.json.
+	#[arg(long)]
+	pub organization: Option<String>,
+	/// Optional repository name override. Defaults to .crrp/repo-slug.json.
+	#[arg(long)]
+	pub repository: Option<String>,
+	/// Optional repo ID override (internal/advanced). When omitted, derived from organization/repository.
 	#[arg(long)]
 	pub repo_id: Option<String>,
 	/// Optional registry contract address override.

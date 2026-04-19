@@ -7,6 +7,7 @@ use std::{
 };
 
 use alloy::primitives::{Address, FixedBytes};
+use crate::commands::config::{write_repo_id, write_repo_slug, RepoSlug};
 
 use super::{
 	args::{
@@ -17,11 +18,12 @@ use super::{
 	git::{git_output, short_commit_id},
 	mock::{load_mock_state, repo_key},
 	model::{Backend, MockProposalState, MockProposalStatus},
-	preflight::preflight,
+	preflight::{derive_repo_id, preflight},
 	wallet::load_wallet_session,
 };
 
-const TEST_REPO_ID_HEX: &str = "0x1111111111111111111111111111111111111111111111111111111111111111";
+const TEST_ORGANIZATION: &str = "acme";
+const TEST_REPOSITORY: &str = "crrp";
 static NEXT_TEMP_ID: AtomicU64 = AtomicU64::new(0);
 
 struct TempRepo {
@@ -46,7 +48,15 @@ impl TempRepo {
 
 		let crrp_dir = path.join(".crrp");
 		fs::create_dir_all(&crrp_dir)?;
-		fs::write(crrp_dir.join("repo-id"), format!("{TEST_REPO_ID_HEX}\n"))?;
+		let repo_id = test_repo_id();
+		write_repo_slug(
+			&path,
+			&RepoSlug {
+				organization: TEST_ORGANIZATION.to_string(),
+				repository: TEST_REPOSITORY.to_string(),
+			},
+		)?;
+		write_repo_id(&path, &format!("{:#x}", repo_id))?;
 
 		Ok(Self { path })
 	}
@@ -103,6 +113,8 @@ fn proposal_for_repo(
 fn mock_common(repo: &Path) -> CrrpCommonArgs {
 	CrrpCommonArgs {
 		repo: Some(repo.to_path_buf()),
+		organization: None,
+		repository: None,
 		repo_id: None,
 		registry: None,
 		mock: true,
@@ -115,7 +127,7 @@ fn mock_common(repo: &Path) -> CrrpCommonArgs {
 }
 
 fn test_repo_id() -> FixedBytes<32> {
-	TEST_REPO_ID_HEX.parse().expect("valid repo id")
+	derive_repo_id(TEST_ORGANIZATION, TEST_REPOSITORY)
 }
 
 #[tokio::test]
@@ -202,11 +214,10 @@ async fn mock_create_repo_rejects_duplicate_repo() -> Result<(), Box<dyn std::er
 }
 
 #[tokio::test]
-async fn create_repo_fails_fast_on_repo_id_mismatch() -> Result<(), Box<dyn std::error::Error>> {
+async fn create_repo_fails_fast_on_repo_slug_mismatch() -> Result<(), Box<dyn std::error::Error>> {
 	let repo = TempRepo::new()?;
 	let mut common = mock_common(&repo.path);
-	common.repo_id =
-		Some("0x2222222222222222222222222222222222222222222222222222222222222222".to_string());
+	common.organization = Some("other-org".to_string());
 
 	let error = run_create_repo(
 		CreateRepoArgs {
@@ -222,8 +233,8 @@ async fn create_repo_fails_fast_on_repo_id_mismatch() -> Result<(), Box<dyn std:
 		Some("http://127.0.0.1:1"),
 	)
 	.await
-	.expect_err("repo id mismatch should fail before any create-repo side effects");
-	assert!(error.to_string().contains("Repo ID mismatch"));
+	.expect_err("repo slug mismatch should fail before any create-repo side effects");
+	assert!(error.to_string().contains("Repository slug mismatch"));
 
 	let state = load_mock_state(&repo.path)?;
 	assert!(
