@@ -1,4 +1,6 @@
+mod allowance;
 mod approval;
+mod bridge;
 mod papp;
 mod session;
 
@@ -8,6 +10,7 @@ use super::{
 };
 
 pub(super) use approval::request_wallet_tx_approval;
+#[cfg(test)]
 pub(super) use session::load_wallet_session;
 
 pub(super) async fn ensure_wallet_session(
