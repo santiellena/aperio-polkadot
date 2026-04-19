@@ -1,102 +1,87 @@
-import { Outlet, Link, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet } from "react-router-dom";
 import { useChainStore } from "./store/chainStore";
-import { useConnectionManagement } from "./hooks/useConnection";
+import { useWalletSession } from "./features/auth/useWalletSession";
+import { DEFAULT_REGISTRY_ADDRESS } from "./config/crrp";
+import { shortenAddress } from "./lib/crrp";
 
 export default function App() {
-	const location = useLocation();
-	const pallets = useChainStore((s) => s.pallets);
-	const connected = useChainStore((s) => s.connected);
-
-	useConnectionManagement();
-
-	const navItems = [
-		{ path: "/", label: "Home", enabled: true },
-		{ path: "/pallet", label: "Pallet PoE", enabled: pallets.templatePallet === true },
-		{ path: "/evm", label: "EVM PoE", enabled: pallets.revive === true },
-		{ path: "/pvm", label: "PVM PoE", enabled: pallets.revive === true },
-		{ path: "/statements", label: "Statements", enabled: true },
-		{ path: "/accounts", label: "Accounts", enabled: true },
-	];
+	const ethRpcUrl = useChainStore((state) => state.ethRpcUrl);
+	const { account, sourceLabel } = useWalletSession();
 
 	return (
 		<div className="min-h-screen bg-pattern relative">
-			{/* Ambient gradient orbs */}
 			<div
 				className="gradient-orb"
-				style={{ background: "#e6007a", top: "-200px", right: "-100px" }}
+				style={{ background: "#0f766e", top: "-220px", right: "-120px" }}
 			/>
 			<div
 				className="gradient-orb"
-				style={{ background: "#4cc2ff", bottom: "-200px", left: "-100px" }}
+				style={{ background: "#2563eb", bottom: "-220px", left: "-120px" }}
 			/>
 
-			{/* Navigation */}
-			<nav className="sticky top-0 z-50 border-b border-white/[0.06] backdrop-blur-xl bg-surface-950/80">
-				<div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-6">
-					<Link to="/" className="flex items-center gap-2.5 shrink-0 group">
-						<div className="w-7 h-7 rounded-lg bg-gradient-to-br from-polka-500 to-polka-700 flex items-center justify-center shadow-glow transition-shadow group-hover:shadow-glow-lg">
-							<svg viewBox="0 0 16 16" className="w-4 h-4" fill="white">
-								<circle cx="8" cy="3" r="2" />
-								<circle cx="3" cy="8" r="2" />
-								<circle cx="13" cy="8" r="2" />
-								<circle cx="8" cy="13" r="2" />
-								<circle cx="8" cy="8" r="1.5" opacity="0.6" />
-							</svg>
+			<nav className="sticky top-0 z-50 border-b border-white/[0.06] backdrop-blur-xl bg-surface-950/85">
+				<div className="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-4 md:flex-row md:items-center">
+					<div className="flex items-center gap-4">
+						<Link to="/" className="flex items-center gap-3 shrink-0">
+							<div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center text-white font-semibold">
+								C
+							</div>
+							<div>
+								<div className="text-sm font-semibold text-white tracking-tight">
+									CRRP Web
+								</div>
+								<div className="text-xs text-text-tertiary">
+									Read-first repository registry
+								</div>
+							</div>
+						</Link>
+
+						<div className="flex gap-1 overflow-x-auto">
+							<NavItem to="/">Repositories</NavItem>
 						</div>
-						<span className="text-base font-semibold text-text-primary font-display tracking-tight">
-							Polkadot Stack
-						</span>
-					</Link>
-
-					<div className="flex gap-0.5 overflow-x-auto">
-						{navItems.map((item) =>
-							item.enabled ? (
-								<Link
-									key={item.path}
-									to={item.path}
-									className={`relative px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${
-										location.pathname === item.path
-											? "text-white"
-											: "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
-									}`}
-								>
-									{location.pathname === item.path && (
-										<span className="absolute inset-0 rounded-lg bg-polka-500/15 border border-polka-500/25" />
-									)}
-									<span className="relative">{item.label}</span>
-								</Link>
-							) : (
-								<span
-									key={item.path}
-									className="px-3 py-1.5 rounded-lg text-sm font-medium text-text-muted cursor-not-allowed whitespace-nowrap"
-									title="Pallet not available on connected chain"
-								>
-									{item.label}
-								</span>
-							),
-						)}
 					</div>
 
-					{/* Connection indicator */}
-					<div className="ml-auto flex items-center gap-2 shrink-0">
-						<span
-							className={`w-2 h-2 rounded-full transition-colors duration-500 ${
-								connected
-									? "bg-accent-green shadow-[0_0_6px_rgba(52,211,153,0.5)]"
-									: "bg-text-muted"
-							}`}
+					<div className="ml-auto grid grid-cols-1 gap-2 text-xs text-text-secondary md:grid-cols-3 md:items-center">
+						<MetaPill label="Registry" value={DEFAULT_REGISTRY_ADDRESS ? shortenAddress(DEFAULT_REGISTRY_ADDRESS) : "Unset"} />
+						<MetaPill label="RPC" value={ethRpcUrl.replace(/^https?:\/\//, "")} />
+						<MetaPill
+							label="Account"
+							value={account ? `${sourceLabel}: ${shortenAddress(account)}` : "Not connected"}
 						/>
-						<span className="text-xs text-text-tertiary hidden sm:inline">
-							{connected ? "Connected" : "Offline"}
-						</span>
 					</div>
 				</div>
 			</nav>
 
-			{/* Main content */}
-			<main className="relative z-10 max-w-5xl mx-auto px-4 py-8">
+			<main className="relative z-10 max-w-6xl mx-auto px-4 py-8">
 				<Outlet />
 			</main>
+		</div>
+	);
+}
+
+function NavItem({ to, children }: { to: string; children: React.ReactNode }) {
+	return (
+		<NavLink
+			to={to}
+			end
+			className={({ isActive }) =>
+				`relative px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+					isActive
+						? "text-white bg-white/[0.08] border border-white/[0.08]"
+						: "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
+				}`
+			}
+		>
+			{children}
+		</NavLink>
+	);
+}
+
+function MetaPill({ label, value }: { label: string; value: string }) {
+	return (
+		<div className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2">
+			<div className="text-[11px] uppercase tracking-[0.18em] text-text-muted">{label}</div>
+			<div className="mt-1 text-text-primary font-mono break-all">{value}</div>
 		</div>
 	);
 }

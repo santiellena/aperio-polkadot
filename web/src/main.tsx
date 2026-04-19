@@ -1,20 +1,18 @@
 import { StrictMode, Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
-import { HashRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import App from "./App";
 import "./index.css";
 
-const HomePage = lazy(() => import("./pages/HomePage"));
-const PalletPage = lazy(() => import("./pages/PalletPage"));
-const EvmContractPage = lazy(() => import("./pages/EvmContractPage"));
-const PvmContractPage = lazy(() => import("./pages/PvmContractPage"));
-const AccountsPage = lazy(() => import("./pages/AccountsPage"));
-const StatementStorePage = lazy(() => import("./pages/StatementStorePage"));
+const HomeRoute = lazy(() => import("./routes/HomeRoute"));
+const RepoRoute = lazy(() => import("./routes/RepoRoute"));
+const RepoHistoryRoute = lazy(() => import("./routes/RepoHistoryRoute"));
+const RepoTreeRoute = lazy(() => import("./routes/RepoTreeRoute"));
 
 const routeFallback = (
 	<div className="card animate-pulse">
 		<div className="h-4 w-32 rounded bg-white/[0.06]" />
-		<div className="mt-3 h-3 w-48 rounded bg-white/[0.04]" />
+		<div className="mt-3 h-3 w-56 rounded bg-white/[0.04]" />
 	</div>
 );
 
@@ -27,50 +25,35 @@ createRoot(document.getElementById("root")!).render(
 						index
 						element={
 							<Suspense fallback={routeFallback}>
-								<HomePage />
+								<HomeRoute />
 							</Suspense>
 						}
 					/>
 					<Route
-						path="pallet"
+						path="repo/:organization/:repository"
 						element={
 							<Suspense fallback={routeFallback}>
-								<PalletPage />
+								<RepoRoute />
 							</Suspense>
 						}
 					/>
 					<Route
-						path="evm"
+						path="repo/:organization/:repository/history"
 						element={
 							<Suspense fallback={routeFallback}>
-								<EvmContractPage />
+								<RepoHistoryRoute />
 							</Suspense>
 						}
 					/>
 					<Route
-						path="pvm"
+						path="repo/:organization/:repository/tree/*"
 						element={
 							<Suspense fallback={routeFallback}>
-								<PvmContractPage />
+								<RepoTreeRoute />
 							</Suspense>
 						}
 					/>
-					<Route
-						path="accounts"
-						element={
-							<Suspense fallback={routeFallback}>
-								<AccountsPage />
-							</Suspense>
-						}
-					/>
-					<Route
-						path="statements"
-						element={
-							<Suspense fallback={routeFallback}>
-								<StatementStorePage />
-							</Suspense>
-						}
-					/>
+					<Route path="*" element={<Navigate to="/" replace />} />
 				</Route>
 			</Routes>
 		</HashRouter>

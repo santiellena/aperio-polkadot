@@ -11,14 +11,13 @@ The app uses:
 - [viem](https://viem.sh/) for EVM and PVM contract interaction through `eth-rpc`
 - Zustand for state management
 
-Key pages include:
+Key pages now focus on the CRRP MVP:
 
-- Home
-- Pallet Proof of Existence
-- EVM Proof of Existence
-- PVM Proof of Existence
-- Statements
-- Accounts
+- repository discovery
+- repository overview
+- canonical commit history
+- role display for the active account
+- treasury donation flow
 
 ## Local Development
 
@@ -50,6 +49,9 @@ Set:
 
 - `VITE_WS_URL`
 - `VITE_ETH_RPC_URL`
+- `VITE_CRRP_REGISTRY_ADDRESS`
+- `VITE_CRRP_REPO_ORGANIZATION` (optional default)
+- `VITE_CRRP_REPO_NAME` (optional default)
 
 For local scripted development, [`../scripts/start-all.sh`](../scripts/start-all.sh) and [`../scripts/start-frontend.sh`](../scripts/start-frontend.sh) export:
 
