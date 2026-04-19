@@ -38,6 +38,7 @@ export default function App() {
 
 						<div className="flex gap-1 overflow-x-auto">
 							<NavItem to="/">Repositories</NavItem>
+							<NavItem to="/leaderboard">Leaderboard</NavItem>
 						</div>
 					</div>
 

@@ -1,5 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { useWalletSession } from "../features/auth/useWalletSession";
+import { LeaderboardTable } from "../features/leaderboard/LeaderboardTable";
+import { useRepoLeaderboard } from "../features/leaderboard/useLeaderboards";
 import { useRepoOverview } from "../features/repo/useRepoOverview";
 import { TreasuryDonationCard } from "../features/treasury/TreasuryDonationCard";
 import {
@@ -13,6 +15,12 @@ export default function RepoRoute() {
 	const { organization, repository } = useParams();
 	const { account } = useWalletSession();
 	const { repo, loading, error } = useRepoOverview(organization, repository, account);
+	const { entries: leaderboardEntries, loading: leaderboardLoading } = useRepoLeaderboard(
+		repo?.repoId,
+		repo?.organization,
+		repo?.repository,
+		repo?.treasuryAddress,
+	);
 
 	if (loading) {
 		return <div className="card animate-pulse h-40" />;
@@ -50,6 +58,12 @@ export default function RepoRoute() {
 							className="btn-secondary"
 						>
 							Tree
+						</Link>
+						<Link
+							to={`/repo/${encodeURIComponent(repo.organization)}/${encodeURIComponent(repo.repository)}/leaderboard`}
+							className="btn-secondary"
+						>
+							Leaderboard
 						</Link>
 					</div>
 				</div>
@@ -176,6 +190,31 @@ cd crrp-${repo.repoId.slice(2, 10)}`}
 						))}
 					</div>
 				</div>
+			</section>
+
+			<section className="card space-y-4">
+				<div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+					<div>
+						<h2 className="section-title">Top Earners</h2>
+						<p className="text-sm text-text-secondary mt-1">
+							Read from the repository treasury event stream.
+						</p>
+					</div>
+					<Link
+						to={`/repo/${encodeURIComponent(repo.organization)}/${encodeURIComponent(repo.repository)}/leaderboard`}
+						className="btn-secondary"
+					>
+						Open Full Leaderboard
+					</Link>
+				</div>
+				{leaderboardLoading ? <div className="animate-pulse h-24 rounded-lg bg-white/[0.03]" /> : null}
+				{!leaderboardLoading ? (
+					<LeaderboardTable
+						entries={leaderboardEntries.slice(0, 3)}
+						emptyMessage="No rewards have been accrued for this repository yet."
+						showRepoBreakdown={false}
+					/>
+				) : null}
 			</section>
 
 			<TreasuryDonationCard

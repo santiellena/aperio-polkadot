@@ -132,6 +132,12 @@ const proposalMergedEvent = parseAbiItem(
 const releaseCreatedEvent = parseAbiItem(
 	"event ReleaseCreated(bytes32 indexed repoId, bytes32 indexed commitHash, string version, string cid)",
 );
+const claimAccruedEvent = parseAbiItem(
+	"event ClaimAccrued(bytes32 indexed repoId, uint256 indexed proposalId, address indexed who, uint256 amount)",
+);
+const claimedEvent = parseAbiItem(
+	"event Claimed(bytes32 indexed repoId, address indexed who, uint256 amount)",
+);
 
 type RepoReadResult = readonly [Address, Hex, string, bigint, bigint];
 type RepoMetadataReadResult = readonly [string, string];
@@ -194,7 +200,42 @@ export type RepoOverview = {
 	cloneUrl: string | null;
 };
 
+export type LeaderboardRepoStats = {
+	repoId: Hex;
+	organization: string;
+	repository: string;
+	earned: bigint;
+	claimed: bigint;
+	contributionCount: number;
+	reviewCount: number;
+};
+
+export type LeaderboardEntry = {
+	rank: number;
+	account: Address;
+	displayName: string;
+	totalEarned: bigint;
+	totalClaimed: bigint;
+	unclaimed: bigint;
+	contributionCount: number;
+	reviewCount: number;
+	repoCount: number;
+	lastRewardAt: number | null;
+	lastClaimAt: number | null;
+	lastActivityAt: number | null;
+	repos: LeaderboardRepoStats[];
+};
+
+export type LeaderboardSummary = {
+	totalEarned: bigint;
+	totalClaimed: bigint;
+	totalUnclaimed: bigint;
+	contributorCount: number;
+};
+
 const blockTimestampCache = new Map<string, number>();
+const repoMetadataCache = new Map<string, Promise<RepoMetadataReadResult>>();
+const proposalContributorCache = new Map<string, Promise<Address>>();
 
 function getRegistryAddress(): Address {
 	if (!DEFAULT_REGISTRY_ADDRESS) {
@@ -279,6 +320,260 @@ export async function listRepos(): Promise<RepoListItem[]> {
 	return items.sort((left, right) => Number((right.blockNumber ?? 0n) - (left.blockNumber ?? 0n)));
 }
 
+async function getRepoMetadata(repoId: Hex): Promise<RepoMetadataReadResult> {
+	const cacheKey = repoId.toLowerCase();
+	const cached = repoMetadataCache.get(cacheKey);
+	if (cached) {
+		return cached;
+	}
+
+	const promise = getPublicClient(getStoredEthRpcUrl()).readContract({
+		address: getRegistryAddress(),
+		abi: crrpRegistryAbi,
+		functionName: "getRepoMetadata",
+		args: [repoId],
+	}) as Promise<RepoMetadataReadResult>;
+	repoMetadataCache.set(cacheKey, promise);
+	return promise;
+}
+
+async function getProposalContributor(repoId: Hex, proposalId: bigint): Promise<Address> {
+	const cacheKey = `${repoId.toLowerCase()}:${proposalId.toString()}`;
+	const cached = proposalContributorCache.get(cacheKey);
+	if (cached) {
+		return cached;
+	}
+
+	const promise = (getPublicClient(getStoredEthRpcUrl()).readContract({
+		address: getRegistryAddress(),
+		abi: crrpRegistryAbi,
+		functionName: "getProposal",
+		args: [repoId, proposalId],
+	}) as Promise<ProposalReadResult>).then((proposal) => proposal[0]);
+	proposalContributorCache.set(cacheKey, promise);
+	return promise;
+}
+
+async function getRepoTreasuryAddress(repoId: Hex): Promise<Address | null> {
+	const treasuryAddress = (await getPublicClient(getStoredEthRpcUrl()).readContract({
+		address: getRegistryAddress(),
+		abi: crrpRegistryAbi,
+		functionName: "getRepoIncentiveTreasury",
+		args: [repoId],
+	})) as Address;
+
+	return treasuryAddress && treasuryAddress !== ZERO_ADDRESS ? treasuryAddress : null;
+}
+
+function createEmptyLeaderboardEntry(account: Address) {
+	return {
+		account,
+		displayName: account,
+		totalEarned: 0n,
+		totalClaimed: 0n,
+		unclaimed: 0n,
+		contributionCount: 0,
+		reviewCount: 0,
+		repoIds: new Set<string>(),
+		lastRewardAt: null as number | null,
+		lastClaimAt: null as number | null,
+		repos: new Map<string, LeaderboardRepoStats>(),
+	};
+}
+
+function sortLeaderboard(entries: LeaderboardEntry[]) {
+	return entries.sort((left, right) => {
+		if (left.totalEarned !== right.totalEarned) {
+			return left.totalEarned > right.totalEarned ? -1 : 1;
+		}
+		if (left.contributionCount !== right.contributionCount) {
+			return right.contributionCount - left.contributionCount;
+		}
+		if (left.totalClaimed !== right.totalClaimed) {
+			return left.totalClaimed > right.totalClaimed ? -1 : 1;
+		}
+		return left.account.localeCompare(right.account);
+	});
+}
+
+function finalizeLeaderboard(
+	internalEntries: Map<string, ReturnType<typeof createEmptyLeaderboardEntry>>,
+): LeaderboardEntry[] {
+	return sortLeaderboard(
+		Array.from(internalEntries.values()).map((entry, index) => ({
+			rank: index + 1,
+			account: entry.account,
+			displayName: entry.displayName,
+			totalEarned: entry.totalEarned,
+			totalClaimed: entry.totalClaimed,
+			unclaimed: entry.totalEarned - entry.totalClaimed,
+			contributionCount: entry.contributionCount,
+			reviewCount: entry.reviewCount,
+			repoCount: entry.repoIds.size,
+			lastRewardAt: entry.lastRewardAt,
+			lastClaimAt: entry.lastClaimAt,
+			lastActivityAt: Math.max(entry.lastRewardAt ?? 0, entry.lastClaimAt ?? 0) || null,
+			repos: Array.from(entry.repos.values()).sort((left, right) =>
+				left.earned === right.earned ? 0 : left.earned > right.earned ? -1 : 1,
+			),
+		})),
+	).map((entry, index) => ({ ...entry, rank: index + 1 }));
+}
+
+function summarizeLeaderboard(entries: LeaderboardEntry[]): LeaderboardSummary {
+	return entries.reduce(
+		(summary, entry) => ({
+			totalEarned: summary.totalEarned + entry.totalEarned,
+			totalClaimed: summary.totalClaimed + entry.totalClaimed,
+			totalUnclaimed: summary.totalUnclaimed + entry.unclaimed,
+			contributorCount: summary.contributorCount + 1,
+		}),
+		{ totalEarned: 0n, totalClaimed: 0n, totalUnclaimed: 0n, contributorCount: 0 },
+	);
+}
+
+async function aggregateLeaderboard(
+	repoCatalog: Map<string, RepoListItem>,
+	treasuryTargets: Array<{ address: Address; repoId?: Hex }>,
+) {
+	const client = getPublicClient(getStoredEthRpcUrl());
+	const internalEntries = new Map<string, ReturnType<typeof createEmptyLeaderboardEntry>>();
+
+	for (const target of treasuryTargets) {
+		const [allAccruedLogs, allClaimedLogs] = await Promise.all([
+			client.getLogs({
+				address: target.address,
+				event: claimAccruedEvent,
+				fromBlock: 0n,
+				toBlock: "latest",
+			}),
+			client.getLogs({
+				address: target.address,
+				event: claimedEvent,
+				fromBlock: 0n,
+				toBlock: "latest",
+			}),
+		]);
+		const targetRepoId = target.repoId;
+		const accruedLogs = targetRepoId
+			? allAccruedLogs.filter(
+					(log) =>
+						(log.args.repoId as Hex | undefined)?.toLowerCase() ===
+						targetRepoId.toLowerCase(),
+			  )
+			: allAccruedLogs;
+		const claimedLogs = targetRepoId
+			? allClaimedLogs.filter(
+					(log) =>
+						(log.args.repoId as Hex | undefined)?.toLowerCase() ===
+						targetRepoId.toLowerCase(),
+			  )
+			: allClaimedLogs;
+
+		for (const log of accruedLogs) {
+			const account = log.args.who as Address;
+			const repoId = log.args.repoId as Hex;
+			const proposalId = log.args.proposalId ?? 0n;
+			const amount = log.args.amount ?? 0n;
+			const cacheKey = account.toLowerCase();
+			const entry = internalEntries.get(cacheKey) ?? createEmptyLeaderboardEntry(account);
+			const [repoMeta, contributor, timestamp] = await Promise.all([
+				repoCatalog.get(repoId.toLowerCase())
+					? Promise.resolve(repoCatalog.get(repoId.toLowerCase())!)
+					: getRepoMetadata(repoId).then(([organization, repository]) => ({
+							repoId,
+							organization,
+							repository,
+							maintainer: ZERO_ADDRESS as Address,
+							headCommit: "0x" as Hex,
+							headCid: "",
+							createdAt: null,
+							blockNumber: null,
+						})),
+				getProposalContributor(repoId, proposalId),
+				log.blockNumber ? getBlockTimestamp(log.blockNumber) : Promise.resolve(null),
+			]);
+
+			entry.totalEarned += amount;
+			entry.repoIds.add(repoId.toLowerCase());
+			entry.lastRewardAt = Math.max(entry.lastRewardAt ?? 0, timestamp ?? 0) || null;
+
+			const repoOrganization = repoMeta?.organization ?? "";
+			const repoRepository = repoMeta?.repository ?? "";
+			const repoStats =
+				entry.repos.get(repoId.toLowerCase()) ??
+				{
+					repoId,
+					organization: repoOrganization,
+					repository: repoRepository,
+					earned: 0n,
+					claimed: 0n,
+					contributionCount: 0,
+					reviewCount: 0,
+				};
+			repoStats.earned += amount;
+
+			if (contributor.toLowerCase() === account.toLowerCase()) {
+				entry.contributionCount += 1;
+				repoStats.contributionCount += 1;
+			} else {
+				entry.reviewCount += 1;
+				repoStats.reviewCount += 1;
+			}
+
+			entry.repos.set(repoId.toLowerCase(), repoStats);
+			internalEntries.set(cacheKey, entry);
+		}
+
+		for (const log of claimedLogs) {
+			const account = log.args.who as Address;
+			const repoId = log.args.repoId as Hex;
+			const amount = log.args.amount ?? 0n;
+			const cacheKey = account.toLowerCase();
+			const entry = internalEntries.get(cacheKey) ?? createEmptyLeaderboardEntry(account);
+			const catalogRepoMeta = repoCatalog.get(repoId.toLowerCase());
+			const repoMeta =
+				catalogRepoMeta ??
+				(await getRepoMetadata(repoId).then(([organization, repository]) => ({
+					repoId,
+					organization,
+					repository,
+					maintainer: ZERO_ADDRESS as Address,
+					headCommit: "0x" as Hex,
+					headCid: "",
+					createdAt: null,
+					blockNumber: null,
+				})));
+			const timestamp = log.blockNumber ? await getBlockTimestamp(log.blockNumber) : null;
+
+			entry.totalClaimed += amount;
+			entry.repoIds.add(repoId.toLowerCase());
+			entry.lastClaimAt = Math.max(entry.lastClaimAt ?? 0, timestamp ?? 0) || null;
+
+			const repoOrganization = repoMeta?.organization ?? "";
+			const repoRepository = repoMeta?.repository ?? "";
+			const repoStats =
+				entry.repos.get(repoId.toLowerCase()) ??
+				{
+					repoId,
+					organization: repoOrganization,
+					repository: repoRepository,
+					earned: 0n,
+					claimed: 0n,
+					contributionCount: 0,
+					reviewCount: 0,
+				};
+			repoStats.claimed += amount;
+
+			entry.repos.set(repoId.toLowerCase(), repoStats);
+			internalEntries.set(cacheKey, entry);
+		}
+	}
+
+	const entries = finalizeLeaderboard(internalEntries);
+	return { entries, summary: summarizeLeaderboard(entries) };
+}
+
 async function readRepoRoles(repoId: Hex, account?: Address): Promise<RepoRoleSet> {
 	if (!account) {
 		return { isMaintainer: false, isContributor: false, isReviewer: false };
@@ -315,22 +610,26 @@ async function readRepoRoles(repoId: Hex, account?: Address): Promise<RepoRoleSe
 
 export async function readRepoHistory(repoId: Hex): Promise<RepoHistoryEntry[]> {
 	const client = getPublicClient(getStoredEthRpcUrl());
-	const [createdLogs, mergedLogs] = await Promise.all([
+	const [allCreatedLogs, allMergedLogs] = await Promise.all([
 		client.getLogs({
 			address: getRegistryAddress(),
 			event: repoCreatedEvent,
-			args: { repoId },
 			fromBlock: 0n,
 			toBlock: "latest",
 		}),
 		client.getLogs({
 			address: getRegistryAddress(),
 			event: proposalMergedEvent,
-			args: { repoId },
 			fromBlock: 0n,
 			toBlock: "latest",
 		}),
 	]);
+	const createdLogs = allCreatedLogs.filter(
+		(log) => (log.args.repoId as Hex | undefined)?.toLowerCase() === repoId.toLowerCase(),
+	);
+	const mergedLogs = allMergedLogs.filter(
+		(log) => (log.args.repoId as Hex | undefined)?.toLowerCase() === repoId.toLowerCase(),
+	);
 
 	const initialEntries = await Promise.all(
 		createdLogs.map(async (log) => ({
@@ -372,13 +671,15 @@ export async function readRepoHistory(repoId: Hex): Promise<RepoHistoryEntry[]> 
 
 export async function readRepoReleases(repoId: Hex): Promise<RepoRelease[]> {
 	const client = getPublicClient(getStoredEthRpcUrl());
-	const logs = await client.getLogs({
+	const allLogs = await client.getLogs({
 		address: getRegistryAddress(),
 		event: releaseCreatedEvent,
-		args: { repoId },
 		fromBlock: 0n,
 		toBlock: "latest",
 	});
+	const logs = allLogs.filter(
+		(log) => (log.args.repoId as Hex | undefined)?.toLowerCase() === repoId.toLowerCase(),
+	);
 
 	const releases = await Promise.all(
 		logs.map(async (log) => ({
@@ -478,4 +779,57 @@ export async function readRepoOverview(
 		releases,
 		cloneUrl: buildBundleUrl(repo[2]),
 	};
+}
+
+export async function readRepoLeaderboard(
+	repoId: Hex,
+	organization: string,
+	repository: string,
+	treasuryAddress: Address | null,
+) {
+	if (!treasuryAddress) {
+		return {
+			entries: [] as LeaderboardEntry[],
+			summary: { totalEarned: 0n, totalClaimed: 0n, totalUnclaimed: 0n, contributorCount: 0 },
+		};
+	}
+
+	const repoCatalog = new Map<string, RepoListItem>();
+	repoCatalog.set(repoId.toLowerCase(), {
+		repoId,
+		organization,
+		repository,
+		maintainer: ZERO_ADDRESS as Address,
+		headCommit: "0x" as Hex,
+		headCid: "",
+		createdAt: null,
+		blockNumber: null,
+	});
+
+	return aggregateLeaderboard(repoCatalog, [{ address: treasuryAddress, repoId }]);
+}
+
+export async function readGlobalLeaderboard() {
+	const repos = await listRepos();
+	const repoCatalog = new Map(repos.map((repo) => [repo.repoId.toLowerCase(), repo]));
+	const treasuryTargets = (
+		await Promise.all(
+			repos.map(async (repo) => ({
+				repoId: repo.repoId,
+				address: await getRepoTreasuryAddress(repo.repoId),
+			})),
+		)
+	)
+		.filter((target): target is { repoId: Hex; address: Address } => Boolean(target.address))
+		.filter(
+			(target, index, all) =>
+				all.findIndex(
+					(candidate) => candidate.address.toLowerCase() === target.address.toLowerCase(),
+				) === index,
+		);
+
+	return aggregateLeaderboard(
+		repoCatalog,
+		treasuryTargets.map((target) => ({ address: target.address })),
+	);
 }
