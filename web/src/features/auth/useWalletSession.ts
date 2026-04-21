@@ -45,10 +45,12 @@ async function createInjectedWalletClient(account: Address) {
 }
 
 function canUseLocalDevSigner() {
+	if (import.meta.env.VITE_DISABLE_DEV_SIGNER) {
+		return false;
+	}
 	if (typeof window === "undefined") {
 		return true;
 	}
-
 	return window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 }
 

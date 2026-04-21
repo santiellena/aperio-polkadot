@@ -24,7 +24,7 @@ export default function App() {
 			/>
 
 			<nav className="sticky top-0 z-50 border-b border-white/[0.06] backdrop-blur-xl bg-surface-950/85">
-				<div className="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-4 md:flex-row md:items-center">
+				<div className="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-4 md:flex-row md:items-center">
 					<div className="flex items-center gap-4">
 						<Link to="/" className="flex items-center gap-3 shrink-0">
 							<div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center text-white font-semibold">
@@ -32,30 +32,30 @@ export default function App() {
 							</div>
 							<div>
 								<div className="text-sm font-semibold text-white tracking-tight">
-									CRRP Web
+									CRRP
 								</div>
 								<div className="text-xs text-text-tertiary">
-									Read-first repository registry
+									Censorship-Resistant Repositories
 								</div>
 							</div>
 						</Link>
 
+						<div className="flex items-center gap-4">
 						<div className="flex gap-1 overflow-x-auto">
 							<NavItem to="/">Repositories</NavItem>
 							<NavItem to="/leaderboard">Leaderboard</NavItem>
+							<NavItem to="/config">Config</NavItem>
 						</div>
-					</div>
+						</div>
 
-					<div className="ml-auto grid grid-cols-1 gap-2 text-xs text-text-secondary md:grid-cols-4 md:items-center">
-						<MetaPill label="Registry" value={DEFAULT_REGISTRY_ADDRESS ? shortenAddress(DEFAULT_REGISTRY_ADDRESS) : "Unset"} />
-						<MetaPill label="RPC" value={ethRpcUrl.replace(/^https?:\/\//, "")} />
+						<div className="ml-auto grid grid-cols-1 gap-2 text-xs text-text-secondary md:grid-cols-4 md:items-center">
 						<MetaPill
 							label="Account"
 							value={
 								account
 									? `${sourceLabel}: ${shortenAddress(account)}`
 									: substrateAccount
-										? `${substrateAccount.name || "Polkadot"}: ${shortenAddress(substrateAccount.address)}`
+										? `${substrateAccount.name || "Polkadot"}: ${`${substrateAccount.address.slice(0, 4)}...${substrateAccount.address.slice(-4)}`}`
 										: "Not connected"
 							}
 						/>
@@ -63,7 +63,16 @@ export default function App() {
 							? <MapAccountButton account={substrateAccount} />
 							: <MetaPill label="EVM Address" value="No wallet" />
 						}
+						<MetaPill label="Registry" value={DEFAULT_REGISTRY_ADDRESS ? shortenAddress(DEFAULT_REGISTRY_ADDRESS) : "Unset"} />
+						<MetaPill label="RPC" value={ethRpcUrl.replace(/^https?:\/\//, "")} />
 					</div>
+					</div>
+						
+					
+
+					
+
+					
 				</div>
 			</nav>
 

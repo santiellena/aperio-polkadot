@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { Binary, FixedSizeBinary } from "polkadot-api";
+import { stack_template } from "@polkadot-api/descriptors";
+import { encodeFunctionData, keccak256, type Abi } from "viem";
 import { getPublicClient } from "../config/evm";
 import { getStoredEthRpcUrl } from "../config/network";
 import { useSubstrateSession } from "../features/auth/useSubstrateSession";
 import { useWalletSession } from "../features/auth/useWalletSession";
+import { getClient } from "../hooks/useChain";
 import { checkBulletinAuthorization, uploadToBulletin } from "../hooks/useBulletin";
 import {
 	crrpRegistryAbi,
@@ -14,6 +18,7 @@ import {
 	normalizeRepoSlugPart,
 	shortenAddress,
 } from "../lib/crrp";
+import { useChainStore } from "../store/chainStore";
 import { hexHashToCid } from "../utils/cid";
 import { hashFileWithBytes } from "../utils/hash";
 
@@ -26,30 +31,22 @@ export default function CreateProposalRoute() {
 	const {
 		account,
 		sourceLabel,
-		canUseBrowserWallet,
 		canUseDevSigner,
-		connectBrowserWallet,
 		devAccountIndex,
 		selectDevAccount,
 		getWalletClientForWrite,
 	} = useWalletSession();
 
 	const {
-		selectedSource: substrateSource,
-		setSelectedSource: setSubstrateSource,
-		canUseDevSigner: canUseDevSubstrateSigner,
-		devAccountIndex: substrateDevAccountIndex,
-		setDevAccountIndex: setSubstrateDevAccountIndex,
-		devAccounts: substrateDevAccounts,
-		hostStatus,
-		availableWallets,
 		browserAccounts,
-		browserSourceLabel,
 		selectedBrowserAccountIndex,
-		setSelectedBrowserAccountIndex,
-		connectBrowserWallet: connectSubstrateWallet,
 		getBulletinSigner,
 	} = useSubstrateSession();
+	const wsUrl = useChainStore((s) => s.wsUrl);
+	const substrateAccount = browserAccounts[selectedBrowserAccountIndex] ?? null;
+	const substrateH160: `0x${string}` | null = substrateAccount
+		? (`0x${keccak256(substrateAccount.polkadotSigner.publicKey).slice(-40)}` as `0x${string}`)
+		: null;
 
 	const organization = normalizeRepoSlugPart(rawOrg ?? "");
 	const repository = normalizeRepoSlugPart(rawRepo ?? "");
@@ -182,23 +179,65 @@ export default function CreateProposalRoute() {
 				await uploadToBulletin(bundleBytes!, bulletinSigner);
 			}
 
-			const walletClient = await getWalletClientForWrite();
-			if (!walletClient.account) {
-				throw new Error("No EVM signer is available for proposal submission");
-			}
-
 			const publicClient = getPublicClient(getStoredEthRpcUrl());
+			const execContractWrite = async (opts: {
+				address: `0x${string}`;
+				abi: Abi;
+				functionName: string;
+				args?: unknown[];
+			}): Promise<void> => {
+				if (account) {
+					const walletClient = await getWalletClientForWrite();
+					if (!walletClient.account) {
+						throw new Error("No EVM signer is available for proposal submission");
+					}
+					const txHash = await walletClient.writeContract({
+						address: opts.address,
+						abi: opts.abi,
+						functionName: opts.functionName,
+						args: opts.args,
+						account: walletClient.account,
+						chain: walletClient.chain,
+					});
+					await publicClient.waitForTransactionReceipt({ hash: txHash });
+					return;
+				}
+
+				if (substrateAccount) {
+					const calldata = encodeFunctionData({
+						abi: opts.abi,
+						functionName: opts.functionName,
+						args: opts.args ?? [],
+					});
+					const api = getClient(wsUrl).getTypedApi(stack_template);
+					const tx = api.tx.Revive.call({
+						dest: FixedSizeBinary.fromHex(opts.address),
+						value: 0n,
+						weight_limit: { ref_time: 500_000_000_000n, proof_size: 5_000_000n },
+						storage_deposit_limit: 10_000_000_000_000n,
+						data: Binary.fromHex(calldata),
+					});
+					await new Promise<void>((resolve, reject) => {
+						tx.signSubmitAndWatch(substrateAccount.polkadotSigner).subscribe({
+							next: (ev) => {
+								if (ev.type === "txBestBlocksState" && ev.found) resolve();
+							},
+							error: reject,
+						});
+					});
+					return;
+				}
+
+				throw new Error("No transaction signer is available for proposal submission");
+			};
 
 			setStatus("Submitting proposal to registry...");
-			const txHash = await walletClient.writeContract({
+			await execContractWrite({
 				address: registryAddress,
-				abi: crrpRegistryAbi,
+				abi: crrpRegistryAbi as Abi,
 				functionName: "submitProposal",
 				args: [repoId, proposedCommitBytes32, effectiveCid],
-				account: walletClient.account,
-				chain: walletClient.chain,
 			});
-			await publicClient.waitForTransactionReceipt({ hash: txHash });
 
 			navigate(
 				`/repo/${encodeURIComponent(organization)}/${encodeURIComponent(repository)}`,
@@ -347,26 +386,20 @@ export default function CreateProposalRoute() {
 						<h2 className="section-title">Signers</h2>
 						<p className="mt-1 text-sm text-text-secondary">
 							{cidMode === "upload"
-								? "Bulletin upload uses a Substrate signer. Proposal submission uses an EVM signer."
-								: "Proposal submission uses an EVM signer. No Bulletin signer needed in direct CID mode."}
+								? "Bulletin upload uses a Substrate signer. Proposal submission uses the connected wallet session."
+								: "Proposal submission uses the connected wallet session. No Bulletin signer is needed in direct CID mode."}
 						</p>
 					</div>
 					<ValueLine
-						label="EVM signer"
+						label="Transaction signer"
 						value={
 							account
 								? `${sourceLabel}: ${shortenAddress(account)}`
+								: substrateH160
+									? `Substrate: ${shortenAddress(substrateH160)}`
 								: "Not connected"
 						}
 					/>
-					{canUseBrowserWallet ? (
-						<button
-							onClick={() => void connectBrowserWallet()}
-							className="btn-secondary w-full"
-						>
-							Connect EVM Browser Wallet
-						</button>
-					) : null}
 					{canUseDevSigner ? (
 						<div>
 							<label className="label">Local EVM Dev Signer</label>
@@ -384,87 +417,14 @@ export default function CreateProposalRoute() {
 					{cidMode === "upload" ? (
 						<>
 							<div className="border-t border-white/[0.06] pt-4">
-								<label className="label">Bulletin Signer Source</label>
-								<div className="mt-2 flex flex-wrap gap-2">
-									{canUseDevSubstrateSigner ? (
-										<button
-											onClick={() => setSubstrateSource("dev")}
-											className={
-												substrateSource === "dev" ? "btn-primary" : "btn-secondary"
-											}
-										>
-											Local Dev
-										</button>
-									) : null}
-									<button
-										onClick={() => setSubstrateSource("browser")}
-										className={
-											substrateSource === "browser" ? "btn-primary" : "btn-secondary"
-										}
-									>
-										Browser / Host
-									</button>
-								</div>
-								{substrateSource === "dev" && canUseDevSubstrateSigner ? (
-									<div className="mt-3">
-										<label className="label">Local Bulletin Dev Signer</label>
-										<select
-											value={substrateDevAccountIndex}
-											onChange={(event) =>
-												setSubstrateDevAccountIndex(Number(event.target.value))
-											}
-											className="input-field w-full"
-										>
-											{substrateDevAccounts.map((devAccount, index) => (
-												<option key={devAccount.address} value={index}>
-													{devAccount.name} ({devAccount.address})
-												</option>
-											))}
-										</select>
-									</div>
-								) : null}
-								{substrateSource === "browser" ? (
-									<div className="mt-3 space-y-3">
-										<div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 text-xs text-text-secondary">
-											Host status: {hostStatus}
-											{browserSourceLabel ? ` · ${browserSourceLabel}` : ""}
-										</div>
-										{browserAccounts.length > 0 ? (
-											<div>
-												<label className="label">Browser Bulletin Account</label>
-												<select
-													value={selectedBrowserAccountIndex}
-													onChange={(event) =>
-														setSelectedBrowserAccountIndex(
-															Number(event.target.value),
-														)
-													}
-													className="input-field w-full"
-												>
-													{browserAccounts.map((browserAccount, index) => (
-														<option key={browserAccount.address} value={index}>
-															{browserAccount.name || "Account"} (
-															{browserAccount.address})
-														</option>
-													))}
-												</select>
-											</div>
-										) : null}
-										{browserAccounts.length === 0 && availableWallets.length > 0 ? (
-											<div className="flex flex-wrap gap-2">
-												{availableWallets.map((walletName) => (
-													<button
-														key={walletName}
-														onClick={() => void connectSubstrateWallet(walletName)}
-														className="btn-secondary"
-													>
-														Connect {walletName}
-													</button>
-												))}
-											</div>
-										) : null}
-									</div>
-								) : null}
+								<ValueLine
+									label="Bulletin signer"
+									value={
+										substrateH160
+											? `Substrate: ${shortenAddress(substrateH160)}`
+											: "Available from connected Substrate session"
+									}
+								/>
 							</div>
 							<div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 text-sm text-text-secondary">
 								{authorizationState === "idle"

@@ -12,10 +12,12 @@ type BulletinSignerSource = "dev" | "browser";
 type HostStatus = "idle" | "injecting" | "connected" | "unavailable" | "failed";
 
 function isLocalHost() {
+	if (import.meta.env.VITE_DISABLE_DEV_SIGNER) {
+		return false;
+	}
 	if (typeof window === "undefined") {
 		return true;
 	}
-
 	return window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 }
 
@@ -141,7 +143,25 @@ export function useSubstrateSession() {
 		setExtensionAccounts(extension.getAccounts());
 		setConnectedWallet(walletName);
 		setPreferredSource("browser");
+		localStorage.setItem("connected-extension-wallet", walletName);
 	}, []);
+
+	const disconnectBrowserWallet = useCallback(() => {
+		extensionUnsubscribeRef.current?.();
+		extensionUnsubscribeRef.current = null;
+		setExtensionAccounts([]);
+		setConnectedWallet(null);
+		localStorage.removeItem("connected-extension-wallet");
+	}, []);
+
+	useEffect(() => {
+		const saved = localStorage.getItem("connected-extension-wallet");
+		if (saved && !connectedWallet) {
+			connectBrowserWallet(saved).catch(() => {
+				localStorage.removeItem("connected-extension-wallet");
+			});
+		}
+	}, [connectBrowserWallet]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	return useMemo(
 		() => ({
@@ -157,7 +177,9 @@ export function useSubstrateSession() {
 			browserSourceLabel,
 			selectedBrowserAccountIndex,
 			setSelectedBrowserAccountIndex: setPreferredBrowserAccountIndex,
+			connectedWallet,
 			connectBrowserWallet,
+			disconnectBrowserWallet,
 			getBulletinSigner: async (): Promise<{
 				address: string;
 				signer: PolkadotSigner;
@@ -177,7 +199,9 @@ export function useSubstrateSession() {
 			browserAccounts,
 			browserSourceLabel,
 			canUseDevSigner,
+			connectedWallet,
 			connectBrowserWallet,
+			disconnectBrowserWallet,
 			devAccountIndex,
 			hostStatus,
 			selectedBrowserAccountIndex,

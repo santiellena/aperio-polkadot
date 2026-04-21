@@ -41,21 +41,12 @@ function parseOptionalEthAmount(value: string, label: string) {
 
 export default function CreateRepoRoute() {
 	const navigate = useNavigate();
-	const { account, sourceLabel, canUseBrowserWallet, canUseDevSigner, connectBrowserWallet, devAccountIndex, selectDevAccount, getWalletClientForWrite } =
+	const { account, sourceLabel, canUseDevSigner, devAccountIndex, selectDevAccount, getWalletClientForWrite } =
 		useWalletSession();
 	const {
-		selectedSource: substrateSource,
-		setSelectedSource: setSubstrateSource,
-		canUseDevSigner: canUseDevSubstrateSigner,
-		devAccountIndex: substrateDevAccountIndex,
-		setDevAccountIndex: setSubstrateDevAccountIndex,
-		devAccounts: substrateDevAccounts,
-		hostStatus,
 		availableWallets,
 		browserAccounts,
-		browserSourceLabel,
 		selectedBrowserAccountIndex,
-		setSelectedBrowserAccountIndex,
 		connectBrowserWallet: connectSubstrateWallet,
 		getBulletinSigner,
 	} = useSubstrateSession();
@@ -259,8 +250,8 @@ export default function CreateRepoRoute() {
 					const tx = api.tx.Revive.call({
 						dest: FixedSizeBinary.fromHex(opts.address),
 						value: opts.value ?? 0n,
-						weight_limit: { ref_time: 10_000_000_000n, proof_size: 200_000n },
-						storage_deposit_limit: 0n,
+						weight_limit: { ref_time: 500_000_000_000n, proof_size: 5_000_000n },
+						storage_deposit_limit: 10_000_000_000_000n,
 						data: Binary.fromHex(calldata),
 					});
 					await new Promise<void>((resolve, reject) => {
@@ -550,12 +541,12 @@ export default function CreateRepoRoute() {
 					<div>
 						<h2 className="section-title">Signers</h2>
 						<p className="mt-1 text-sm text-text-secondary">
-							Bulletin upload uses a Substrate signer. Repo creation and configuration use
-							an EVM signer.
+							Bulletin upload uses a Substrate signer. Repository creation and configuration
+							use the connected wallet session.
 						</p>
 					</div>
 					<ValueLine
-						label="EVM signer"
+						label="Transaction signer"
 						value={
 							account
 								? `${sourceLabel}: ${shortenAddress(account)}`
@@ -564,25 +555,17 @@ export default function CreateRepoRoute() {
 									: "Not connected"
 						}
 					/>
-					{canUseBrowserWallet ? (
-						<button onClick={() => void connectBrowserWallet()} className="btn-secondary w-full">
-							Connect EVM Browser Wallet
-						</button>
-					) : null}
 					{!account && browserAccounts.length === 0 && availableWallets.length > 0 ? (
-						<div>
-							<label className="label">Connect Wallet for EVM Signing</label>
-							<div className="mt-2 flex flex-wrap gap-2">
-								{availableWallets.map((walletName) => (
-									<button
-										key={walletName}
-										onClick={() => void connectSubstrateWallet(walletName)}
-										className="btn-secondary"
-									>
-										Connect {walletName}
-									</button>
-								))}
-							</div>
+						<div className="flex flex-wrap gap-2">
+							{availableWallets.map((walletName) => (
+								<button
+									key={walletName}
+									onClick={() => void connectSubstrateWallet(walletName)}
+									className="btn-secondary"
+								>
+									Connect {walletName}
+								</button>
+							))}
 						</div>
 					) : null}
 					{canUseDevSigner ? (
@@ -602,78 +585,14 @@ export default function CreateRepoRoute() {
 					{cidMode === "upload" ? (
 						<>
 							<div className="border-t border-white/[0.06] pt-4">
-								<label className="label">Bulletin Signer Source</label>
-								<div className="mt-2 flex flex-wrap gap-2">
-									{canUseDevSubstrateSigner ? (
-										<button
-											onClick={() => setSubstrateSource("dev")}
-											className={substrateSource === "dev" ? "btn-primary" : "btn-secondary"}
-										>
-											Local Dev
-										</button>
-									) : null}
-									<button
-										onClick={() => setSubstrateSource("browser")}
-										className={substrateSource === "browser" ? "btn-primary" : "btn-secondary"}
-									>
-										Browser / Host
-									</button>
-								</div>
-								{substrateSource === "dev" && canUseDevSubstrateSigner ? (
-									<div className="mt-3">
-										<label className="label">Local Bulletin Dev Signer</label>
-										<select
-											value={substrateDevAccountIndex}
-											onChange={(event) => setSubstrateDevAccountIndex(Number(event.target.value))}
-											className="input-field w-full"
-										>
-											{substrateDevAccounts.map((devAccount, index) => (
-												<option key={devAccount.address} value={index}>
-													{devAccount.name} ({devAccount.address})
-												</option>
-											))}
-										</select>
-									</div>
-								) : null}
-								{substrateSource === "browser" ? (
-									<div className="mt-3 space-y-3">
-										<div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 text-xs text-text-secondary">
-											Host status: {hostStatus}
-											{browserSourceLabel ? ` · ${browserSourceLabel}` : ""}
-										</div>
-										{browserAccounts.length > 0 ? (
-											<div>
-												<label className="label">Browser Bulletin Account</label>
-												<select
-													value={selectedBrowserAccountIndex}
-													onChange={(event) =>
-														setSelectedBrowserAccountIndex(Number(event.target.value))
-													}
-													className="input-field w-full"
-												>
-													{browserAccounts.map((browserAccount, index) => (
-														<option key={browserAccount.address} value={index}>
-															{browserAccount.name || "Account"} ({browserAccount.address})
-														</option>
-													))}
-												</select>
-											</div>
-										) : null}
-										{browserAccounts.length === 0 && availableWallets.length > 0 ? (
-											<div className="flex flex-wrap gap-2">
-												{availableWallets.map((walletName) => (
-													<button
-														key={walletName}
-														onClick={() => void connectSubstrateWallet(walletName)}
-														className="btn-secondary"
-													>
-														Connect {walletName}
-													</button>
-												))}
-											</div>
-										) : null}
-									</div>
-								) : null}
+								<ValueLine
+									label="Bulletin signer"
+									value={
+										substrateH160
+											? `Substrate: ${shortenAddress(substrateH160)}`
+											: "Available from connected Substrate session"
+									}
+								/>
 							</div>
 							<div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 text-sm text-text-secondary">
 								{authorizationState === "idle" ? "Select a bundle to check Bulletin authorization." : null}

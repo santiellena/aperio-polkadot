@@ -1,7 +1,14 @@
 import { useState } from "react";
-import { parseEther } from "viem";
+import { encodeFunctionData, keccak256, parseEther, type Abi } from "viem";
+import { Binary, FixedSizeBinary } from "polkadot-api";
+import { stack_template } from "@polkadot-api/descriptors";
 import { crrpTreasuryAbi, formatEthAmount, shortenAddress } from "../../lib/crrp";
 import { useWalletSession } from "../auth/useWalletSession";
+import { useSubstrateSession } from "../auth/useSubstrateSession";
+import { getClient } from "../../hooks/useChain";
+import { useChainStore } from "../../store/chainStore";
+import { getPublicClient } from "../../config/evm";
+import { getStoredEthRpcUrl } from "../../config/network";
 import type { Address, Hex } from "viem";
 
 export function TreasuryDonationCard({
@@ -26,39 +33,79 @@ export function TreasuryDonationCard({
 	const {
 		account,
 		sourceLabel,
-		canUseBrowserWallet,
 		canUseDevSigner,
-		connectBrowserWallet,
 		devAccountIndex,
 		selectDevAccount,
 		getWalletClientForWrite,
 	} = useWalletSession();
+	const {
+		browserAccounts,
+		selectedBrowserAccountIndex,
+		availableWallets,
+		connectBrowserWallet: connectSubstrateWallet,
+	} = useSubstrateSession();
+	const wsUrl = useChainStore((s) => s.wsUrl);
+
+	const substrateAccount = browserAccounts[selectedBrowserAccountIndex] ?? null;
+	const substrateH160: `0x${string}` | null = substrateAccount
+		? (`0x${keccak256(substrateAccount.polkadotSigner.publicKey).slice(-40)}` as `0x${string}`)
+		: null;
+
 	const [amount, setAmount] = useState("0.1");
 	const [status, setStatus] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 
-	const treasuryReady = Boolean(treasuryAddress);
+	const treasuryReady = Boolean(treasuryAddress) && Boolean(account || substrateH160);
 
 	const submitDonation = async () => {
-		if (!treasuryAddress) {
-			return;
-		}
+		if (!treasuryAddress) return;
 
 		setSubmitting(true);
 		setStatus(null);
 		try {
-			const walletClient = await getWalletClientForWrite();
-			const hash = await walletClient.writeContract({
-				address: treasuryAddress,
-				abi: crrpTreasuryAbi,
-				functionName: "donate",
-				args: [repoId],
-				value: parseEther(amount),
-				account: walletClient.account as any,
-				chain: walletClient.chain,
-			});
+			const value = parseEther(amount);
 
-			setStatus(`Donation submitted: ${hash}`);
+			if (account) {
+				const walletClient = await getWalletClientForWrite();
+				const hash = await walletClient.writeContract({
+					address: treasuryAddress,
+					abi: crrpTreasuryAbi,
+					functionName: "donate",
+					args: [repoId],
+					value,
+					account: walletClient.account as unknown as Address,
+					chain: walletClient.chain,
+				});
+				const publicClient = getPublicClient(getStoredEthRpcUrl());
+				await publicClient.waitForTransactionReceipt({ hash });
+				setStatus(`Donation submitted: ${hash}`);
+			} else if (substrateAccount) {
+				const calldata = encodeFunctionData({
+					abi: crrpTreasuryAbi as Abi,
+					functionName: "donate",
+					args: [repoId],
+				});
+				const api = getClient(wsUrl).getTypedApi(stack_template);
+				const tx = api.tx.Revive.call({
+					dest: FixedSizeBinary.fromHex(treasuryAddress),
+					value,
+					weight_limit: { ref_time: 500_000_000_000n, proof_size: 5_000_000n },
+					storage_deposit_limit: 10_000_000_000_000n,
+					data: Binary.fromHex(calldata),
+				});
+				await new Promise<void>((resolve, reject) => {
+					tx.signSubmitAndWatch(substrateAccount.polkadotSigner).subscribe({
+						next: (ev) => {
+							if (ev.type === "txBestBlocksState" && ev.found) resolve();
+						},
+						error: reject,
+					});
+				});
+				setStatus("Donation submitted.");
+			} else {
+				throw new Error("No EVM signer available. Connect a wallet.");
+			}
+
 			await onDonated();
 		} catch (cause) {
 			setStatus(cause instanceof Error ? cause.message : "Donation failed");
@@ -66,6 +113,12 @@ export function TreasuryDonationCard({
 			setSubmitting(false);
 		}
 	};
+
+	const signerLabel = account
+		? `${sourceLabel}: ${shortenAddress(account)}`
+		: substrateH160
+			? `Substrate: ${shortenAddress(substrateH160)}`
+			: "Not connected";
 
 	return (
 		<section className="card space-y-4">
@@ -91,19 +144,10 @@ export function TreasuryDonationCard({
 				<ValueBlock label="Contributor Reward" value={formatEthAmount(contributionReward)} />
 				<ValueBlock label="Reviewer Reward" value={formatEthAmount(reviewReward)} />
 				<ValueBlock label="Unfunded Claimable" value={formatEthAmount(unfundedClaimable)} />
-				<ValueBlock label="Current Signer" value={account ? `${sourceLabel}: ${shortenAddress(account)}` : "Not connected"} />
+				<ValueBlock label="Current Signer" value={signerLabel} />
 			</div>
 
-			{canUseBrowserWallet ? (
-				<div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 flex flex-wrap items-center gap-3">
-					<button onClick={() => void connectBrowserWallet()} className="btn-secondary">
-						Connect Browser Wallet
-					</button>
-					<span className="text-xs text-text-secondary">
-						Use an injected wallet when running in the browser or inside dot.li.
-					</span>
-				</div>
-			) : canUseDevSigner ? (
+			{canUseDevSigner ? (
 				<div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 flex flex-wrap items-center gap-3">
 					<label className="text-xs uppercase tracking-[0.18em] text-text-muted">
 						Dev Signer
@@ -117,16 +161,24 @@ export function TreasuryDonationCard({
 						<option value={1}>Bob</option>
 						<option value={2}>Charlie</option>
 					</select>
-					<span className="text-xs text-text-secondary">
-						Used as a local fallback when no injected wallet is available.
-					</span>
 				</div>
-			) : (
+			) : !account && browserAccounts.length === 0 && availableWallets.length > 0 ? (
+				<div className="flex flex-wrap gap-2">
+					{availableWallets.map((walletName) => (
+						<button
+							key={walletName}
+							onClick={() => void connectSubstrateWallet(walletName)}
+							className="btn-secondary"
+						>
+							Connect {walletName}
+						</button>
+					))}
+				</div>
+			) : !account && !substrateH160 ? (
 				<div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 text-xs text-text-secondary">
-					No injected wallet was detected in this browser. Treasury donations require a
-					browser wallet in hosted environments.
+					No wallet detected. Connect a wallet via the Config page.
 				</div>
-			)}
+			) : null}
 
 			<div className="flex flex-col gap-3 md:flex-row md:items-end">
 				<div className="flex-1">

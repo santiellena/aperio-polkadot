@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { type Address, type Hex } from "viem";
 import { getPublicClient } from "../config/evm";
 import { getStoredEthRpcUrl } from "../config/network";
 import { useWalletSession } from "../features/auth/useWalletSession";
@@ -10,25 +9,15 @@ import {
 	buildBundleUrl,
 	crrpRegistryAbi,
 	formatGitCommitHash,
+	formatRepoTimestamp,
 	getRegistryAddress,
+	readRepoProposals,
 	shortenAddress,
+	type RepoProposal,
 } from "../lib/crrp";
 
-type ProposalReadResult = readonly [Address, Hex, string, bigint, bigint, number, Hex, string];
 type ReviewReadResult = readonly [boolean, boolean];
-
-type ProposalEntry = {
-	id: number;
-	contributor: Address;
-	proposedCommit: Hex;
-	proposedCid: string;
-	approvals: bigint;
-	rejections: bigint;
-	status: number;
-	mergedCommit: Hex;
-	mergedCid: string;
-	reviewerVote: { exists: boolean; approved: boolean } | null;
-};
+type ProposalEntry = RepoProposal & { reviewerVote: { exists: boolean; approved: boolean } | null };
 
 const STATUS_LABEL: Record<number, string> = { 1: "Open", 2: "Rejected", 3: "Merged" };
 const STATUS_CLASS: Record<number, string> = {
@@ -78,16 +67,7 @@ export default function RepoProposalsRoute() {
 			const ids = Array.from({ length: count }, (_, i) => i);
 
 			const [proposalResults, reviewResults] = await Promise.all([
-				Promise.all(
-					ids.map((i) =>
-						client.readContract({
-							address: registryAddress,
-							abi: crrpRegistryAbi,
-							functionName: "getProposal",
-							args: [repo.repoId, BigInt(i)],
-						}) as Promise<ProposalReadResult>,
-					),
-				),
+				readRepoProposals(repo.repoId),
 				account && repo.roles.isReviewer
 					? Promise.all(
 							ids.map((i) =>
@@ -104,22 +84,17 @@ export default function RepoProposalsRoute() {
 
 			if (cancelled) return;
 
-			const entries: ProposalEntry[] = proposalResults.map((data, i) => ({
-				id: i,
-				contributor: data[0],
-				proposedCommit: data[1],
-				proposedCid: data[2],
-				approvals: data[3],
-				rejections: data[4],
-				status: data[5],
-				mergedCommit: data[6],
-				mergedCid: data[7],
+			const entries: ProposalEntry[] = proposalResults.map((proposal) => ({
+				...proposal,
 				reviewerVote: reviewResults
-					? { exists: reviewResults[i][0], approved: reviewResults[i][1] }
+					? {
+							exists: reviewResults[Number(proposal.id)]?.[0] ?? false,
+							approved: reviewResults[Number(proposal.id)]?.[1] ?? false,
+						}
 					: null,
 			}));
 
-			setProposals(entries.reverse());
+			setProposals(entries);
 			setProposalsLoading(false);
 		};
 
@@ -160,7 +135,7 @@ export default function RepoProposalsRoute() {
 
 			setProposals((prev) =>
 				prev.map((p) =>
-					p.id === proposalId
+					p.id === BigInt(proposalId)
 						? {
 								...p,
 								approvals: approved ? p.approvals + 1n : p.approvals,
@@ -260,15 +235,16 @@ export default function RepoProposalsRoute() {
 							STATUS_CLASS[proposal.status] ??
 							"border-white/[0.06] bg-white/[0.03] text-text-secondary";
 						const statusLabel = STATUS_LABEL[proposal.status] ?? "Unknown";
-						const proposalTxStatus = txStatus[proposal.id];
-						const isSubmitting = submittingId === proposal.id;
+						const proposalNumber = Number(proposal.id);
+						const proposalTxStatus = txStatus[proposalNumber];
+						const isSubmitting = submittingId === proposalNumber;
 
 						return (
-							<div key={proposal.id} className="card space-y-4">
+							<div key={proposal.id.toString()} className="card space-y-4">
 								<div className="flex flex-wrap items-start justify-between gap-3">
 									<div className="flex flex-wrap items-center gap-2">
 										<span className="rounded-md border border-white/[0.08] bg-white/[0.04] px-2 py-0.5 font-mono text-xs text-text-muted">
-											#{proposal.id}
+											#{proposal.id.toString()}
 										</span>
 										<span
 											className={`rounded-md border px-2 py-0.5 text-xs font-medium ${statusClass}`}
@@ -308,6 +284,14 @@ export default function RepoProposalsRoute() {
 										value={proposal.proposedCid}
 										mono
 									/>
+									<InfoRow
+										label="Submitted"
+										value={formatRepoTimestamp(proposal.submittedAt)}
+									/>
+									<InfoRow
+										label="Last Review"
+										value={formatRepoTimestamp(proposal.lastReviewedAt)}
+									/>
 									{proposal.status === 3 ? (
 										<>
 											<InfoRow
@@ -319,6 +303,10 @@ export default function RepoProposalsRoute() {
 												label="Merged CID"
 												value={proposal.mergedCid}
 												mono
+											/>
+											<InfoRow
+												label="Merged At"
+												value={formatRepoTimestamp(proposal.mergedAt)}
 											/>
 										</>
 									) : null}
@@ -350,7 +338,7 @@ export default function RepoProposalsRoute() {
 								{repo.roles.isMaintainer && proposal.status === 1 ? (
 									<MergePanel
 										repoId={repo.repoId}
-										proposalId={proposal.id}
+										proposalId={proposalNumber}
 										proposedCommit={proposal.proposedCommit}
 										proposedCid={proposal.proposedCid}
 										canMerge={proposal.approvals > 0n && proposal.rejections === 0n}
@@ -392,7 +380,7 @@ export default function RepoProposalsRoute() {
 														title="Looks Good"
 														description="Endorse this proposal. The maintainer will decide whether to merge it — your approval does not trigger a merge."
 														label={isSubmitting ? "Submitting…" : "Approve"}
-														onClick={() => void submitReview(proposal.id, true)}
+														onClick={() => void submitReview(proposalNumber, true)}
 														disabled={isSubmitting}
 													/>
 													<ReviewOption
@@ -400,7 +388,7 @@ export default function RepoProposalsRoute() {
 														title="Not Relevant"
 														description="Close this proposal permanently. Use this when the contribution doesn't make sense or isn't ready."
 														label={isSubmitting ? "Submitting…" : "Reject"}
-														onClick={() => void submitReview(proposal.id, false)}
+														onClick={() => void submitReview(proposalNumber, false)}
 														disabled={isSubmitting}
 													/>
 												</div>
