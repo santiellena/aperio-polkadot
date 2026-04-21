@@ -163,27 +163,12 @@ export function useSubstrateSession() {
 				signer: PolkadotSigner;
 				sourceLabel: string;
 			}> => {
-				if (selectedSource === "browser") {
-					const selectedAccount = browserAccounts[selectedBrowserAccountIndex];
-					if (!selectedAccount) {
-						throw new Error("Connect a Polkadot Host or browser extension for bundle upload");
-					}
-					return {
-						address: selectedAccount.address,
-						signer: selectedAccount.polkadotSigner,
-						sourceLabel: browserSourceLabel || "Browser signer",
-					};
-				}
-
-				if (!canUseDevSigner) {
-					throw new Error("Bundle upload requires a browser or host Substrate signer");
-				}
-
-				const selectedDevAccount = devAccounts[devAccountIndex];
+				// Bulletin chain upload always uses Alice — she is pre-authorized on the Bulletin chain.
+				// User wallets are not registered there, so forcing Alice avoids authorization failures.
 				return {
-					address: selectedDevAccount.address,
-					signer: selectedDevAccount.signer,
-					sourceLabel: `Dev signer: ${selectedDevAccount.name}`,
+					address: devAccounts[0].address,
+					signer: devAccounts[0].signer,
+					sourceLabel: "Alice (Bulletin)",
 				};
 			},
 		}),

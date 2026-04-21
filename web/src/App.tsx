@@ -1,12 +1,16 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useChainStore } from "./store/chainStore";
 import { useWalletSession } from "./features/auth/useWalletSession";
+import { useSubstrateSession } from "./features/auth/useSubstrateSession";
+import { MapAccountButton } from "./components/MapAccountButton";
 import { DEFAULT_REGISTRY_ADDRESS } from "./config/crrp";
 import { shortenAddress } from "./lib/crrp";
 
 export default function App() {
 	const ethRpcUrl = useChainStore((state) => state.ethRpcUrl);
 	const { account, sourceLabel } = useWalletSession();
+	const { browserAccounts, selectedBrowserAccountIndex } = useSubstrateSession();
+	const substrateAccount = browserAccounts[selectedBrowserAccountIndex] ?? null;
 
 	return (
 		<div className="min-h-screen bg-pattern relative">
@@ -42,13 +46,23 @@ export default function App() {
 						</div>
 					</div>
 
-					<div className="ml-auto grid grid-cols-1 gap-2 text-xs text-text-secondary md:grid-cols-3 md:items-center">
+					<div className="ml-auto grid grid-cols-1 gap-2 text-xs text-text-secondary md:grid-cols-4 md:items-center">
 						<MetaPill label="Registry" value={DEFAULT_REGISTRY_ADDRESS ? shortenAddress(DEFAULT_REGISTRY_ADDRESS) : "Unset"} />
 						<MetaPill label="RPC" value={ethRpcUrl.replace(/^https?:\/\//, "")} />
 						<MetaPill
 							label="Account"
-							value={account ? `${sourceLabel}: ${shortenAddress(account)}` : "Not connected"}
+							value={
+								account
+									? `${sourceLabel}: ${shortenAddress(account)}`
+									: substrateAccount
+										? `${substrateAccount.name || "Polkadot"}: ${shortenAddress(substrateAccount.address)}`
+										: "Not connected"
+							}
 						/>
+						{substrateAccount
+							? <MapAccountButton account={substrateAccount} />
+							: <MetaPill label="EVM Address" value="No wallet" />
+						}
 					</div>
 				</div>
 			</nav>
