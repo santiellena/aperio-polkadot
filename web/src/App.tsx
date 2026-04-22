@@ -48,7 +48,7 @@ export default function App() {
 						<NavItem to="/config">Config</NavItem>
 					</div>
 
-					<div className="ml-auto grid shrink-0 grid-cols-3 gap-2 text-xs text-text-secondary">
+					<div className="ml-auto grid shrink-0 grid-cols-3 gap-1.5 text-xs text-text-secondary">
 						<MetaPill
 							label="Account"
 							value={
@@ -98,7 +98,7 @@ function NavItem({ to, children }: { to: string; children: React.ReactNode }) {
 
 function MetaPill({ label, value }: { label: string; value: string }) {
 	return (
-		<div className="min-w-[160px] max-w-[200px] rounded-xl border border-white/[0.06] bg-white/[0.03] px-2.5 py-1.5">
+		<div className="min-w-[136px] max-w-[164px] rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1.5">
 			<div className="panel-label">{label}</div>
 			<div className="mt-0.5 truncate font-mono text-text-primary">{value}</div>
 		</div>

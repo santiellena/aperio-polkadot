@@ -86,14 +86,16 @@ export function getPublicClient(ethRpcUrl = getStoredEthRpcUrl()) {
 	return publicClient;
 }
 
-async function getChain(ethRpcUrl = getStoredEthRpcUrl()): Promise<Chain> {
+export async function getChain(ethRpcUrl = getStoredEthRpcUrl()): Promise<Chain> {
 	if (!chainCache || chainCacheUrl !== ethRpcUrl) {
 		const client = getPublicClient(ethRpcUrl);
 		const chainId = await client.getChainId();
 		chainCache = defineChain({
 			id: chainId,
 			name: isLocalEthRpcUrl(ethRpcUrl) ? "Local Parachain" : "Polkadot Hub TestNet",
-			nativeCurrency: { name: "Unit", symbol: "UNIT", decimals: 18 },
+			nativeCurrency: isLocalEthRpcUrl(ethRpcUrl)
+				? { name: "PAS", symbol: "PAS", decimals: 18 }
+				: { name: "PAS", symbol: "PAS", decimals: 18 },
 			rpcUrls: { default: { http: [ethRpcUrl] } },
 		});
 		chainCacheUrl = ethRpcUrl;

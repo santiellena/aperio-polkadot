@@ -35,7 +35,7 @@ function parseOptionalEthAmount(value: string, label: string) {
 	try {
 		return parseEther(trimmed);
 	} catch {
-		throw new Error(`${label} must be a valid UNIT amount`);
+		throw new Error(`${label} must be a valid PAS amount`);
 	}
 }
 
@@ -630,14 +630,14 @@ export default function CreateRepoRoute() {
 					<div>
 						<h2 className="section-title">Treasury Configuration</h2>
 						<p className="mt-1 text-sm text-text-secondary">
-							These values are fixed UNIT payouts, not percentages. They do not need to add
+							These values are fixed PAS payouts, not percentages. They do not need to add
 							up to 100. After each accepted merge, the configured contributor reward is
 							accrued once and the reviewer reward is accrued for each approved reviewer.
 						</p>
 					</div>
 					<div className="grid gap-3 md:grid-cols-2">
 						<div>
-							<label className="label">Contributor Reward Per Merge (UNIT)</label>
+							<label className="label">Contributor Reward Per Merge (PAS)</label>
 							<input
 								type="text"
 								value={contributionReward}
@@ -647,7 +647,7 @@ export default function CreateRepoRoute() {
 							/>
 						</div>
 						<div>
-							<label className="label">Reviewer Reward Per Approval (UNIT)</label>
+							<label className="label">Reviewer Reward Per Approval (PAS)</label>
 							<input
 								type="text"
 								value={reviewReward}
@@ -658,7 +658,7 @@ export default function CreateRepoRoute() {
 						</div>
 					</div>
 					<div>
-						<label className="label">Initial Treasury Funding (UNIT)</label>
+						<label className="label">Initial Treasury Funding (PAS)</label>
 						<input
 							type="text"
 							value={initialDonation}

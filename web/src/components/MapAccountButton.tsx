@@ -71,7 +71,7 @@ export function MapAccountButton({ account }: { account: InjectedPolkadotAccount
 
 	if (status === "checking") {
 		return (
-			<div className="min-w-[160px] max-w-[200px] rounded-xl border border-white/[0.06] bg-white/[0.03] px-2.5 py-1.5">
+			<div className="min-w-[136px] max-w-[164px] rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1.5">
 				<div className="panel-label">EVM Address</div>
 				<div className="mt-0.5 truncate text-xs text-text-tertiary">Checking…</div>
 			</div>
@@ -80,7 +80,7 @@ export function MapAccountButton({ account }: { account: InjectedPolkadotAccount
 
 	if (status === "mapping") {
 		return (
-			<div className="min-w-[160px] max-w-[200px] rounded-xl border border-white/[0.06] bg-white/[0.03] px-2.5 py-1.5">
+			<div className="min-w-[136px] max-w-[164px] rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1.5">
 				<div className="panel-label">EVM Address</div>
 				<div className="mt-0.5 truncate text-xs text-text-tertiary">Mapping account…</div>
 			</div>
@@ -89,7 +89,7 @@ export function MapAccountButton({ account }: { account: InjectedPolkadotAccount
 
 	if (status === "mapped") {
 		return (
-			<div className="min-w-[160px] max-w-[200px] rounded-xl border border-teal-500/20 bg-teal-500/5 px-2.5 py-1.5">
+			<div className="min-w-[136px] max-w-[164px] rounded-xl border border-teal-500/20 bg-teal-500/5 px-2 py-1.5">
 				<div className="panel-label">EVM Address</div>
 				<div className="mt-0.5 truncate font-mono text-text-primary">{shortH160}</div>
 				<div className="mt-0.5 text-[10px] text-teal-400">Mapped</div>
@@ -98,7 +98,7 @@ export function MapAccountButton({ account }: { account: InjectedPolkadotAccount
 	}
 
 	return (
-		<div className="min-w-[160px] max-w-[200px] rounded-xl border border-amber-500/20 bg-amber-500/5 px-2.5 py-1.5 space-y-1.5">
+		<div className="min-w-[136px] max-w-[164px] rounded-xl border border-amber-500/20 bg-amber-500/5 px-2 py-1.5 space-y-1.5">
 			<div className="panel-label">EVM Address</div>
 			<div className="truncate font-mono text-text-primary">{shortH160}</div>
 			<button

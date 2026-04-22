@@ -60,7 +60,7 @@ export function formatRepoTimestamp(timestamp: number | null) {
 
 export function formatEthAmount(value: bigint | null) {
 	if (value === null) return "Unavailable";
-	return `${formatEther(value)} UNIT`;
+	return `${formatEther(value)} PAS`;
 }
 
 export function buildBundleUrl(cid: string) {

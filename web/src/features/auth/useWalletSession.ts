@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { createWalletClient, custom, defineChain, type Address, type EIP1193Provider } from "viem";
-import { evmDevAccounts, getPublicClient, getWalletClient } from "../../config/evm";
+import { createWalletClient, custom, type Address, type EIP1193Provider } from "viem";
+import { evmDevAccounts, getChain, getWalletClient } from "../../config/evm";
 import { getStoredEthRpcUrl } from "../../config/network";
 
 declare global {
@@ -28,14 +28,7 @@ async function createInjectedWalletClient(account: Address) {
 		throw new Error("No browser wallet provider found");
 	}
 
-	const publicClient = getPublicClient(getStoredEthRpcUrl());
-	const chainId = await publicClient.getChainId();
-	const chain = defineChain({
-		id: chainId,
-		name: "CRRP Network",
-		nativeCurrency: { name: "Unit", symbol: "UNIT", decimals: 18 },
-		rpcUrls: { default: { http: [getStoredEthRpcUrl()] } },
-	});
+	const chain = await getChain(getStoredEthRpcUrl());
 
 	return createWalletClient({
 		account,
