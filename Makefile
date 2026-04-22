@@ -28,12 +28,12 @@ deploy-paseo: check-key deploy-paseo-evm deploy-paseo-pvm
 
 .PHONY: deploy-paseo-evm
 deploy-paseo-evm:
-	@echo "[1/2] Deploying ProofOfExistence (EVM)..."
+	@echo "[1/2] Deploying AperioRepositoryRegistry & AperioIncentivesTreasury (EVM)..."
 	@cd $(EVM_DIR) && npm install --silent && npx hardhat compile --quiet && npx hardhat run scripts/deploy.ts --network polkadotTestnet
 
 .PHONY: deploy-paseo-pvm
 deploy-paseo-pvm:
-	@echo "[2/2] Deploying ProofOfExistence (PVM)..."
+	@echo "[2/2] Deploying AperioRepositoryRegistry & AperioIncentivesTreasury (PVM)..."
 	@cd $(PVM_DIR) && npm install --silent && npx hardhat compile --quiet && npx hardhat run scripts/deploy.ts --network polkadotTestnet
 
 # ─── Frontend deploy ──────────────────────────────────────────────────────────
