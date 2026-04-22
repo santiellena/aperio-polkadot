@@ -53,7 +53,8 @@ jobs:
     runs-on: ubuntu-latest
     name: Build
     env:
-      VITE_APERIO_REGISTRY_KIND: pvm
+      VITE_APERIO_REGISTRY_KIND: evm
+      VITE_APERIO_REGISTRY_ADDRESS: 0x253028394517e27a6d22233e94b5b53c62926940
     steps:
       - uses: actions/checkout@v4
 

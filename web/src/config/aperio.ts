@@ -1,10 +1,13 @@
 import { deployments } from "./deployments";
 
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+export const LEGACY_EVM_REGISTRY_ADDRESS = "0x253028394517e27a6d22233e94b5b53c62926940";
 
-const registryKind = import.meta.env.VITE_APERIO_REGISTRY_KIND || "pvm";
+const registryKind = import.meta.env.VITE_APERIO_REGISTRY_KIND || "evm";
 const defaultDeploymentAddress =
-	registryKind === "evm" ? deployments.evm : deployments.pvm;
+	registryKind === "evm"
+		? LEGACY_EVM_REGISTRY_ADDRESS
+		: deployments.pvm;
 
 export const DEFAULT_REGISTRY_ADDRESS =
 	import.meta.env.VITE_APERIO_REGISTRY_ADDRESS ||

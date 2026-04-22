@@ -10,8 +10,8 @@ export const DEFAULTS = {
   wsUrl: "wss://asset-hub-paseo.dotters.network",
   ethRpcUrl: "https://services.polkadothub-rpc.com/testnet",
   bulletinWs: "wss://paseo-bulletin-rpc.polkadot.io",
-  registryKind: "pvm",
-  registryAddress: "0x6b93b3a454d21f8e79c7030fbe733f5cc5c32abe",
+  registryKind: "evm",
+  registryAddress: "0x253028394517e27a6d22233e94b5b53c62926940",
   bundleGateway: "https://paseo-ipfs.polkadot.io/ipfs",
   stateDir: path.join(os.homedir(), ".aperio"),
 };
@@ -29,7 +29,7 @@ export function getConfig() {
   const registryKind = process.env.APERIO_REGISTRY_KIND || DEFAULTS.registryKind;
   const deployments = readDeployments();
   const defaultDeploymentAddress =
-    registryKind === "evm" ? deployments.evm : deployments.pvm;
+    registryKind === "evm" ? DEFAULTS.registryAddress : deployments.pvm;
 
   return {
     wsUrl: process.env.APERIO_WS_URL || DEFAULTS.wsUrl,
