@@ -90,6 +90,56 @@ async function getRepoTreasuryAddress(repoId: Hex): Promise<Address | null> {
 	return treasuryAddress && treasuryAddress !== ZERO_ADDRESS ? treasuryAddress : null;
 }
 
+async function getRepoTreasurySnapshot(repoId: Hex): Promise<{
+	treasuryBalance: bigint;
+	totalEarned: bigint;
+}> {
+	const treasuryAddress = await getRepoTreasuryAddress(repoId);
+	if (!treasuryAddress) {
+		return { treasuryBalance: 0n, totalEarned: 0n };
+	}
+
+	const client = getPublicClient(getStoredEthRpcUrl());
+	const [treasuryBalance, participantCount] = await Promise.all([
+		client.getBalance({ address: treasuryAddress }),
+		client.readContract({
+			address: treasuryAddress,
+			abi: crrpTreasuryAbi,
+			functionName: "getRepoParticipantCount",
+			args: [repoId],
+		}) as Promise<bigint>,
+	]);
+
+	if (participantCount === 0n) {
+		return { treasuryBalance, totalEarned: 0n };
+	}
+
+	const participants = await Promise.all(
+		Array.from({ length: Number(participantCount) }, (_, index) =>
+			client.readContract({
+				address: treasuryAddress,
+				abi: crrpTreasuryAbi,
+				functionName: "getRepoParticipantAt",
+				args: [repoId, BigInt(index)],
+			}) as Promise<Address>,
+		),
+	);
+
+	const rewardStatsByParticipant = await Promise.all(
+		participants.map((account) =>
+			client.readContract({
+				address: treasuryAddress,
+				abi: crrpTreasuryAbi,
+				functionName: "getRepoRewardStats",
+				args: [repoId, account],
+			}) as Promise<RewardStatsReadResult>,
+		),
+	);
+
+	const totalEarned = rewardStatsByParticipant.reduce((sum, stats) => sum + stats[0], 0n);
+	return { treasuryBalance, totalEarned };
+}
+
 function createEmptyLeaderboardEntry(account: Address) {
 	return {
 		account,
@@ -325,10 +375,11 @@ export async function listRepos(): Promise<RepoListItem[]> {
 
 	const items = await Promise.all(
 		repoIds.map(async (repoId) => {
-			const [repo, metadata, timestamps] = await Promise.all([
+			const [repo, metadata, timestamps, treasurySnapshot] = await Promise.all([
 				getRepo(repoId),
 				getRepoMetadata(repoId),
 				getRepoTimestamps(repoId),
+				getRepoTreasurySnapshot(repoId),
 			]);
 			return {
 				repoId,
@@ -339,6 +390,8 @@ export async function listRepos(): Promise<RepoListItem[]> {
 				headCid: repo[2],
 				createdAt: Number(timestamps[0]) || null,
 				blockNumber: timestamps[1],
+				treasuryBalance: treasurySnapshot.treasuryBalance,
+				totalEarned: treasurySnapshot.totalEarned,
 			};
 		}),
 	);
@@ -567,6 +620,8 @@ export async function readRepoLeaderboard(
 		headCid: "",
 		createdAt: null,
 		blockNumber: null,
+		treasuryBalance: 0n,
+		totalEarned: 0n,
 	});
 
 	return aggregateLeaderboard(repoCatalog, [{ address: treasuryAddress, repoId }]);

@@ -1,54 +1,54 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
-import { useChainStore } from "./store/chainStore";
 import { useWalletSession } from "./features/auth/useWalletSession";
 import { useSubstrateSession } from "./features/auth/useSubstrateSession";
 import { MapAccountButton } from "./components/MapAccountButton";
 import { DEFAULT_REGISTRY_ADDRESS } from "./config/crrp";
 import { shortenAddress } from "./lib/crrp";
+import crrpLogo from "./assets/crrp-logo.png";
 
 export default function App() {
-	const ethRpcUrl = useChainStore((state) => state.ethRpcUrl);
 	const { account, sourceLabel } = useWalletSession();
 	const { browserAccounts, selectedBrowserAccountIndex } = useSubstrateSession();
 	const substrateAccount = browserAccounts[selectedBrowserAccountIndex] ?? null;
 
 	return (
-		<div className="min-h-screen bg-pattern relative">
+		<div className="app-shell bg-pattern">
 			<div
 				className="gradient-orb"
-				style={{ background: "#0f766e", top: "-220px", right: "-120px" }}
+				style={{ background: "#0d9488", top: "-180px", right: "-120px" }}
 			/>
 			<div
 				className="gradient-orb"
 				style={{ background: "#2563eb", bottom: "-220px", left: "-120px" }}
 			/>
 
-			<nav className="sticky top-0 z-50 border-b border-white/[0.06] backdrop-blur-xl bg-surface-950/85">
-				<div className="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-4 md:flex-row md:items-center">
-					<div className="flex items-center gap-4">
-						<Link to="/" className="flex items-center gap-3 shrink-0">
-							<div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center text-white font-semibold">
-								C
-							</div>
-							<div>
-								<div className="text-sm font-semibold text-white tracking-tight">
+			<nav className="sticky top-0 z-50 border-b border-white/[0.06] bg-surface-950/80 backdrop-blur-xl">
+				<div className="mx-auto flex max-w-7xl items-center gap-3 overflow-x-auto px-4 py-3">
+					<Link to="/" className="flex shrink-0 items-center gap-3">
+							<img
+								src={crrpLogo}
+								alt="CRRP logo"
+								className="h-10 w-10 rounded-lg object-cover"
+							/>
+							<div className="min-w-0">
+								<div className="text-base font-semibold text-white tracking-tight">
 									CRRP
 								</div>
-								<div className="text-xs text-text-tertiary">
-									Censorship-Resistant Repositories
+								<div className="truncate text-xs text-text-tertiary">
+									Canonical repository state, proposals, bundles
 								</div>
 							</div>
-						</Link>
+					</Link>
 
-						<div className="flex items-center gap-4">
-						<div className="flex gap-1 overflow-x-auto">
-							<NavItem to="/">Repositories</NavItem>
-							<NavItem to="/leaderboard">Leaderboard</NavItem>
-							<NavItem to="/config">Config</NavItem>
-						</div>
-						</div>
+					<div className="hidden h-8 w-px shrink-0 bg-white/[0.08] lg:block" />
 
-						<div className="ml-auto grid grid-cols-1 gap-2 text-xs text-text-secondary md:grid-cols-4 md:items-center">
+					<div className="flex shrink-0 gap-1">
+						<NavItem to="/">Repositories</NavItem>
+						<NavItem to="/leaderboard">Leaderboard</NavItem>
+						<NavItem to="/config">Config</NavItem>
+					</div>
+
+					<div className="ml-auto grid shrink-0 grid-cols-3 gap-2 text-xs text-text-secondary">
 						<MetaPill
 							label="Account"
 							value={
@@ -63,20 +63,15 @@ export default function App() {
 							? <MapAccountButton account={substrateAccount} />
 							: <MetaPill label="EVM Address" value="No wallet" />
 						}
-						<MetaPill label="Registry" value={DEFAULT_REGISTRY_ADDRESS ? shortenAddress(DEFAULT_REGISTRY_ADDRESS) : "Unset"} />
-						<MetaPill label="RPC" value={ethRpcUrl.replace(/^https?:\/\//, "")} />
+						<MetaPill
+							label="Registry"
+							value={DEFAULT_REGISTRY_ADDRESS ? `${DEFAULT_REGISTRY_ADDRESS.toString().slice(0, 4)}...${DEFAULT_REGISTRY_ADDRESS.toString().slice(-4)}` : "Unset"}
+						/>
 					</div>
-					</div>
-						
-					
-
-					
-
-					
 				</div>
 			</nav>
 
-			<main className="relative z-10 max-w-6xl mx-auto px-4 py-8">
+			<main className="relative z-10 mx-auto max-w-7xl px-4 py-8 md:py-10">
 				<Outlet />
 			</main>
 		</div>
@@ -89,10 +84,10 @@ function NavItem({ to, children }: { to: string; children: React.ReactNode }) {
 			to={to}
 			end
 			className={({ isActive }) =>
-				`relative px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+				`relative rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 whitespace-nowrap ${
 					isActive
-						? "text-white bg-white/[0.08] border border-white/[0.08]"
-						: "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
+						? "border border-white/[0.08] bg-white/[0.08] text-white"
+						: "text-text-secondary hover:bg-white/[0.04] hover:text-text-primary"
 				}`
 			}
 		>
@@ -103,9 +98,9 @@ function NavItem({ to, children }: { to: string; children: React.ReactNode }) {
 
 function MetaPill({ label, value }: { label: string; value: string }) {
 	return (
-		<div className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2">
-			<div className="text-[11px] uppercase tracking-[0.18em] text-text-muted">{label}</div>
-			<div className="mt-1 text-text-primary font-mono break-all">{value}</div>
+		<div className="min-w-[160px] max-w-[200px] rounded-xl border border-white/[0.06] bg-white/[0.03] px-2.5 py-1.5">
+			<div className="panel-label">{label}</div>
+			<div className="mt-0.5 truncate font-mono text-text-primary">{value}</div>
 		</div>
 	);
 }

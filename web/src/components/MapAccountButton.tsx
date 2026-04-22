@@ -71,44 +71,44 @@ export function MapAccountButton({ account }: { account: InjectedPolkadotAccount
 
 	if (status === "checking") {
 		return (
-			<div className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2">
-				<div className="text-[11px] uppercase tracking-[0.18em] text-text-muted">EVM Address</div>
-				<div className="mt-1 text-xs text-text-tertiary">Checking…</div>
+			<div className="min-w-[160px] max-w-[200px] rounded-xl border border-white/[0.06] bg-white/[0.03] px-2.5 py-1.5">
+				<div className="panel-label">EVM Address</div>
+				<div className="mt-0.5 truncate text-xs text-text-tertiary">Checking…</div>
 			</div>
 		);
 	}
 
 	if (status === "mapping") {
 		return (
-			<div className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2">
-				<div className="text-[11px] uppercase tracking-[0.18em] text-text-muted">EVM Address</div>
-				<div className="mt-1 text-xs text-text-tertiary">Mapping account…</div>
+			<div className="min-w-[160px] max-w-[200px] rounded-xl border border-white/[0.06] bg-white/[0.03] px-2.5 py-1.5">
+				<div className="panel-label">EVM Address</div>
+				<div className="mt-0.5 truncate text-xs text-text-tertiary">Mapping account…</div>
 			</div>
 		);
 	}
 
 	if (status === "mapped") {
 		return (
-			<div className="rounded-lg border border-teal-500/20 bg-teal-500/5 px-3 py-2">
-				<div className="text-[11px] uppercase tracking-[0.18em] text-text-muted">EVM Address</div>
-				<div className="mt-1 font-mono text-text-primary">{shortH160}</div>
+			<div className="min-w-[160px] max-w-[200px] rounded-xl border border-teal-500/20 bg-teal-500/5 px-2.5 py-1.5">
+				<div className="panel-label">EVM Address</div>
+				<div className="mt-0.5 truncate font-mono text-text-primary">{shortH160}</div>
 				<div className="mt-0.5 text-[10px] text-teal-400">Mapped</div>
 			</div>
 		);
 	}
 
 	return (
-		<div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 space-y-2">
-			<div className="text-[11px] uppercase tracking-[0.18em] text-text-muted">EVM Address</div>
-			<div className="font-mono text-text-primary">{shortH160}</div>
+		<div className="min-w-[160px] max-w-[200px] rounded-xl border border-amber-500/20 bg-amber-500/5 px-2.5 py-1.5 space-y-1.5">
+			<div className="panel-label">EVM Address</div>
+			<div className="truncate font-mono text-text-primary">{shortH160}</div>
 			<button
 				onClick={() => void handleMap()}
-				className="w-full rounded-md bg-amber-500/20 px-2 py-1 text-xs font-medium text-amber-300 hover:bg-amber-500/30 transition-colors"
+				className="w-full rounded-md bg-amber-500/20 px-2 py-0.5 text-[11px] font-medium text-amber-300 transition-colors hover:bg-amber-500/30"
 			>
 				Map Account
 			</button>
 			{errorMessage && (
-				<div className="text-[10px] text-red-400 break-all">{errorMessage}</div>
+				<div className="break-all text-[10px] text-red-400">{errorMessage}</div>
 			)}
 		</div>
 	);

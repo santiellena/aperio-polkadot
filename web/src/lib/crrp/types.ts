@@ -17,6 +17,8 @@ export type RepoListItem = {
 	headCid: string;
 	createdAt: number | null;
 	blockNumber: bigint | null;
+	treasuryBalance: bigint | null;
+	totalEarned: bigint | null;
 };
 
 export type RepoRoleSet = {

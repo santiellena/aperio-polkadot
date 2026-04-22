@@ -8,9 +8,16 @@
     --color-surface: 10 10 15;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply font-body antialiased;
-    background-color: #0a0a0f;
+    background:
+      radial-gradient(circle at top, rgba(76, 194, 255, 0.08), transparent 30%),
+      radial-gradient(circle at 20% 20%, rgba(230, 0, 122, 0.08), transparent 25%),
+      linear-gradient(180deg, #090b12 0%, #0a0a0f 55%, #090910 100%);
     color: #f0eef5;
   }
 
@@ -38,30 +45,36 @@
 }
 
 @layer components {
+  .app-shell {
+    @apply min-h-screen relative;
+  }
+
   .card {
-    @apply rounded-xl border border-white/[0.06] p-5;
+    @apply rounded-2xl border border-white/[0.08] p-5;
     background: linear-gradient(
       135deg,
-      rgba(16, 16, 24, 0.85) 0%,
-      rgba(20, 18, 28, 0.8) 100%
+      rgba(12, 15, 24, 0.92) 0%,
+      rgba(16, 16, 24, 0.88) 100%
     );
     backdrop-filter: blur(12px);
     box-shadow:
-      0 1px 3px 0 rgba(0, 0, 0, 0.3),
-      0 1px 2px -1px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.03);
+      0 10px 40px -22px rgba(0, 0, 0, 0.7),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
   }
 
   .card-hover {
     @apply card transition-all duration-300;
   }
   .card-hover:hover {
-    border-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.14);
     box-shadow:
-      0 4px 12px 0 rgba(0, 0, 0, 0.4),
-      0 2px 4px -1px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
-    transform: translateY(-1px);
+      0 18px 42px -24px rgba(0, 0, 0, 0.85),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+    transform: translateY(-2px);
+  }
+
+  .card-muted {
+    @apply rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4;
   }
 
   .input-field {
@@ -104,11 +117,47 @@
   }
 
   .page-title {
-    @apply text-3xl font-bold tracking-tight font-display;
+    @apply text-3xl font-bold tracking-tight font-display md:text-4xl;
   }
 
   .section-title {
     @apply text-lg font-semibold text-text-primary font-display;
+  }
+
+  .eyebrow {
+    @apply text-[11px] uppercase tracking-[0.24em] text-text-muted;
+  }
+
+  .panel-label {
+    @apply text-[11px] uppercase tracking-[0.18em] text-text-muted;
+  }
+
+  .hero-card {
+    @apply card overflow-hidden relative;
+    background:
+      linear-gradient(125deg, rgba(17, 22, 35, 0.96) 0%, rgba(10, 11, 17, 0.92) 100%);
+  }
+
+  .hero-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(90deg, rgba(76, 194, 255, 0.14), transparent 32%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 45%);
+    pointer-events: none;
+  }
+
+  .data-stack {
+    @apply rounded-xl border border-white/[0.06] bg-black/20 p-4;
+  }
+
+  .status-chip {
+    @apply inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em];
+  }
+
+  .metric-value {
+    @apply mt-2 text-lg font-semibold text-text-primary;
   }
 
   .status-badge {
@@ -118,18 +167,21 @@
 
 /* Background pattern — subtle dot grid */
 .bg-pattern {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 24px 24px;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 26px 26px;
+  background-position: center center;
 }
 
 /* Animated gradient orb */
 .gradient-orb {
   position: fixed;
-  width: 600px;
-  height: 600px;
+  width: 520px;
+  height: 520px;
   border-radius: 50%;
-  filter: blur(120px);
-  opacity: 0.07;
+  filter: blur(130px);
+  opacity: 0.085;
   pointer-events: none;
   z-index: 0;
 }
