@@ -13,6 +13,7 @@ const polkadotHubTestnet = defineChain({
 });
 
 const DEPLOYMENTS_JSON = path.resolve(__dirname, "../../../deployments.json");
+const DEPLOYMENTS_CLI_JSON = path.resolve(__dirname, "../../../cli/aperio/deployments.json");
 const DEPLOYMENTS_TS = path.resolve(__dirname, "../../../web/src/config/deployments.ts");
 
 type Deployments = {
@@ -38,6 +39,7 @@ function updateDeployments(update: Partial<Deployments>) {
 
 	// Write JSON (for CLI and other tools)
 	fs.writeFileSync(DEPLOYMENTS_JSON, JSON.stringify(data, null, 2) + "\n");
+	fs.writeFileSync(DEPLOYMENTS_CLI_JSON, JSON.stringify(data, null, 2) + "\n");
 
 	// Write TypeScript (for frontend) — match project formatting (tabs, trailing commas, unquoted keys)
 	const fmt = (v: string | null) => (v === null ? "null" : `"${v}"`);

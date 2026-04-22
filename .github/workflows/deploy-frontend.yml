@@ -52,6 +52,8 @@ jobs:
     if: needs.check.outputs.cache-hit != 'true' || inputs.skip-cache
     runs-on: ubuntu-latest
     name: Build
+    env:
+      VITE_APERIO_REGISTRY_KIND: pvm
     steps:
       - uses: actions/checkout@v4
 

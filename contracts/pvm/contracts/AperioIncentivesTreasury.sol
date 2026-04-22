@@ -25,6 +25,17 @@ contract AperioIncentivesTreasury {
 		uint256 reviewReward;
 	}
 
+	struct RewardStats {
+		uint256 earned;
+		uint256 claimed;
+		uint256 contributionCount;
+		uint256 reviewCount;
+		uint64 lastRewardAt;
+		uint64 lastRewardBlock;
+		uint64 lastClaimAt;
+		uint64 lastClaimBlock;
+	}
+
 	IAperioRepositoryRegistry public immutable registry;
 
 	// Donations earmarked for each repo.
@@ -35,6 +46,12 @@ contract AperioIncentivesTreasury {
 	mapping(address => uint256) private totalClaimable;
 	mapping(bytes32 => uint256) private repoTotalClaimable;
 	mapping(bytes32 => mapping(uint256 => bool)) private rewardedProposals;
+	mapping(bytes32 => mapping(address => RewardStats)) private rewardStatsByRepo;
+	mapping(address => RewardStats) private globalRewardStats;
+	mapping(bytes32 => address[]) private repoParticipants;
+	mapping(bytes32 => mapping(address => bool)) private repoParticipantExists;
+	address[] private globalParticipants;
+	mapping(address => bool) private globalParticipantExists;
 
 	event Donated(
 		bytes32 indexed repoId,
@@ -114,6 +131,7 @@ contract AperioIncentivesTreasury {
 		if (contributor != address(0) && cfg.contributionReward > 0) {
 			contributorAmount = cfg.contributionReward;
 			_accrueClaim(repoId, proposalId, contributor, contributorAmount);
+			_recordReward(repoId, contributor, contributorAmount, true);
 		}
 
 		uint256 reviewerTotalAmount = 0;
@@ -124,6 +142,7 @@ contract AperioIncentivesTreasury {
 					continue;
 				}
 				_accrueClaim(repoId, proposalId, reviewer, cfg.reviewReward);
+				_recordReward(repoId, reviewer, cfg.reviewReward, false);
 				reviewerTotalAmount += cfg.reviewReward;
 			}
 		}
@@ -140,6 +159,7 @@ contract AperioIncentivesTreasury {
 		totalClaimable[msg.sender] -= amount;
 		repoTotalClaimable[repoId] -= amount;
 		repoBalances[repoId] -= amount;
+		_recordClaim(repoId, msg.sender, amount);
 
 		(bool sent, ) = payable(msg.sender).call{value: amount}("");
 		require(sent, "Claim transfer failed");
@@ -186,10 +206,131 @@ contract AperioIncentivesTreasury {
 		return rewardedProposals[repoId][proposalId];
 	}
 
+	function getRepoParticipantCount(bytes32 repoId) external view returns (uint256) {
+		return repoParticipants[repoId].length;
+	}
+
+	function getRepoParticipantAt(bytes32 repoId, uint256 index) external view returns (address) {
+		require(index < repoParticipants[repoId].length, "Participant not found");
+		return repoParticipants[repoId][index];
+	}
+
+	function getRepoRewardStats(bytes32 repoId, address account)
+		external
+		view
+		returns (
+			uint256 earned,
+			uint256 claimed,
+			uint256 contributionCount,
+			uint256 reviewCount,
+			uint64 lastRewardAt,
+			uint64 lastRewardBlock,
+			uint64 lastClaimAt,
+			uint64 lastClaimBlock
+		)
+	{
+		RewardStats storage stats = rewardStatsByRepo[repoId][account];
+		return (
+			stats.earned,
+			stats.claimed,
+			stats.contributionCount,
+			stats.reviewCount,
+			stats.lastRewardAt,
+			stats.lastRewardBlock,
+			stats.lastClaimAt,
+			stats.lastClaimBlock
+		);
+	}
+
+	function getGlobalParticipantCount() external view returns (uint256) {
+		return globalParticipants.length;
+	}
+
+	function getGlobalParticipantAt(uint256 index) external view returns (address) {
+		require(index < globalParticipants.length, "Participant not found");
+		return globalParticipants[index];
+	}
+
+	function getGlobalRewardStats(address account)
+		external
+		view
+		returns (
+			uint256 earned,
+			uint256 claimed,
+			uint256 contributionCount,
+			uint256 reviewCount,
+			uint64 lastRewardAt,
+			uint64 lastRewardBlock,
+			uint64 lastClaimAt,
+			uint64 lastClaimBlock
+		)
+	{
+		RewardStats storage stats = globalRewardStats[account];
+		return (
+			stats.earned,
+			stats.claimed,
+			stats.contributionCount,
+			stats.reviewCount,
+			stats.lastRewardAt,
+			stats.lastRewardBlock,
+			stats.lastClaimAt,
+			stats.lastClaimBlock
+		);
+	}
+
 	function _accrueClaim(bytes32 repoId, uint256 proposalId, address who, uint256 amount) private {
+		_registerParticipant(repoId, who);
 		claimableByRepo[repoId][who] += amount;
 		totalClaimable[who] += amount;
 		repoTotalClaimable[repoId] += amount;
 		emit ClaimAccrued(repoId, proposalId, who, amount);
+	}
+
+	function _recordReward(bytes32 repoId, address who, uint256 amount, bool isContribution) private {
+		RewardStats storage repoStats = rewardStatsByRepo[repoId][who];
+		RewardStats storage globalStats = globalRewardStats[who];
+		uint64 rewardedAt = uint64(block.timestamp);
+		uint64 rewardedInBlock = uint64(block.number);
+
+		repoStats.earned += amount;
+		globalStats.earned += amount;
+
+		if (isContribution) {
+			repoStats.contributionCount += 1;
+			globalStats.contributionCount += 1;
+		} else {
+			repoStats.reviewCount += 1;
+			globalStats.reviewCount += 1;
+		}
+
+		repoStats.lastRewardAt = rewardedAt;
+		repoStats.lastRewardBlock = rewardedInBlock;
+		globalStats.lastRewardAt = rewardedAt;
+		globalStats.lastRewardBlock = rewardedInBlock;
+	}
+
+	function _recordClaim(bytes32 repoId, address who, uint256 amount) private {
+		RewardStats storage repoStats = rewardStatsByRepo[repoId][who];
+		RewardStats storage globalStats = globalRewardStats[who];
+		uint64 claimedAt = uint64(block.timestamp);
+		uint64 claimedInBlock = uint64(block.number);
+
+		repoStats.claimed += amount;
+		globalStats.claimed += amount;
+		repoStats.lastClaimAt = claimedAt;
+		repoStats.lastClaimBlock = claimedInBlock;
+		globalStats.lastClaimAt = claimedAt;
+		globalStats.lastClaimBlock = claimedInBlock;
+	}
+
+	function _registerParticipant(bytes32 repoId, address who) private {
+		if (!repoParticipantExists[repoId][who]) {
+			repoParticipantExists[repoId][who] = true;
+			repoParticipants[repoId].push(who);
+		}
+		if (!globalParticipantExists[who]) {
+			globalParticipantExists[who] = true;
+			globalParticipants.push(who);
+		}
 	}
 }

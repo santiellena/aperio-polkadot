@@ -35,6 +35,10 @@ contract AperioRepositoryRegistry {
         bool exists;
         /// @dev When true, any address may submit proposals without a contributor role.
         bool permissionlessContributions;
+        uint64 createdAt;
+        uint64 createdInBlock;
+        uint64 updatedAt;
+        uint64 updatedInBlock;
     }
 
     struct Proposal {
@@ -48,6 +52,12 @@ contract AperioRepositoryRegistry {
         /// @dev Final accepted commit identifier written at merge time.
         bytes32 mergedCommit;
         string mergedCid;
+        uint64 submittedAt;
+        uint64 submittedInBlock;
+        uint64 lastReviewedAt;
+        uint64 lastReviewedInBlock;
+        uint64 mergedAt;
+        uint64 mergedInBlock;
     }
 
     struct Review {
@@ -61,8 +71,11 @@ contract AperioRepositoryRegistry {
         bytes32 commitHash;
         string cid;
         bool exists;
+        uint64 createdAt;
+        uint64 createdInBlock;
     }
 
+    bytes32[] private repoIds;
     mapping(bytes32 => Repo) private repos;
     /// @dev proposals[repoId][proposalId]
     mapping(bytes32 => mapping(uint256 => Proposal)) private proposals;
@@ -71,6 +84,7 @@ contract AperioRepositoryRegistry {
     /// @dev Approved reviewers to reward when the proposal is merged.
     mapping(bytes32 => mapping(uint256 => address[])) private approvedReviewers;
     mapping(bytes32 => mapping(bytes32 => Release)) private releases;
+    mapping(bytes32 => string[]) private releaseVersions;
     /// @dev canonicalCommits[repoId][commitHash] == true once accepted as canonical.
     mapping(bytes32 => mapping(bytes32 => bool)) private canonicalCommits;
     mapping(bytes32 => mapping(address => bool)) private contributorRoles;
@@ -129,8 +143,13 @@ contract AperioRepositoryRegistry {
         repo.headCid = initialHeadCid;
         repo.exists = true;
         repo.permissionlessContributions = permissionlessContributions;
+        repo.createdAt = uint64(block.timestamp);
+        repo.createdInBlock = uint64(block.number);
+        repo.updatedAt = uint64(block.timestamp);
+        repo.updatedInBlock = uint64(block.number);
 
         canonicalCommits[repoId][initialHeadCommit] = true;
+        repoIds.push(repoId);
 
         setIncentiveTreasury(repoId);
 
@@ -203,6 +222,8 @@ contract AperioRepositoryRegistry {
         proposal.proposedCommit = proposedCommit;
         proposal.proposedCid = proposedCid;
         proposal.status = ProposalStatus.Open;
+        proposal.submittedAt = uint64(block.timestamp);
+        proposal.submittedInBlock = uint64(block.number);
 
         emit ProposalSubmitted(repoId, proposalId, msg.sender, proposedCommit, proposedCid);
     }
@@ -228,6 +249,8 @@ contract AperioRepositoryRegistry {
             proposal.rejections += 1;
             proposal.status = ProposalStatus.Rejected;
         }
+        proposal.lastReviewedAt = uint64(block.timestamp);
+        proposal.lastReviewedInBlock = uint64(block.number);
 
         emit ProposalReviewed(repoId, proposalId, msg.sender, approved);
     }
@@ -253,8 +276,12 @@ contract AperioRepositoryRegistry {
 
         repo.headCommit = finalCommitHash;
         repo.headCid = finalCid;
+        repo.updatedAt = uint64(block.timestamp);
+        repo.updatedInBlock = uint64(block.number);
 
         canonicalCommits[repoId][finalCommitHash] = true;
+        proposal.mergedAt = uint64(block.timestamp);
+        proposal.mergedInBlock = uint64(block.number);
 
         emit ProposalMerged(repoId, proposalId, finalCommitHash, finalCid);
 
@@ -278,7 +305,15 @@ contract AperioRepositoryRegistry {
         bytes32 versionKey = keccak256(bytes(version));
         require(!releases[repoId][versionKey].exists, "Release already exists");
 
-        releases[repoId][versionKey] = Release({version: version, commitHash: commitHash, cid: cid, exists: true});
+        releases[repoId][versionKey] = Release({
+            version: version,
+            commitHash: commitHash,
+            cid: cid,
+            exists: true,
+            createdAt: uint64(block.timestamp),
+            createdInBlock: uint64(block.number)
+        });
+        releaseVersions[repoId].push(version);
         repo.releaseCount += 1;
 
         emit ReleaseCreated(repoId, commitHash, version, cid);
@@ -298,6 +333,16 @@ contract AperioRepositoryRegistry {
         Repo storage repo = repos[repoId];
         require(repo.exists, "Repo not found");
         return (repo.maintainer, repo.headCommit, repo.headCid, repo.proposalCount, repo.releaseCount);
+    }
+
+    function getRepoTimestamps(bytes32 repoId)
+        external
+        view
+        returns (uint64 createdAt, uint64 createdInBlock, uint64 updatedAt, uint64 updatedInBlock)
+    {
+        Repo storage repo = repos[repoId];
+        require(repo.exists, "Repo not found");
+        return (repo.createdAt, repo.createdInBlock, repo.updatedAt, repo.updatedInBlock);
     }
 
     function getRepoMetadata(bytes32 repoId) external view returns (string memory organization, string memory name) {
@@ -337,6 +382,33 @@ contract AperioRepositoryRegistry {
         );
     }
 
+    function getProposalTimestamps(bytes32 repoId, uint256 proposalId)
+        external
+        view
+        returns (
+            uint64 submittedAt,
+            uint64 submittedInBlock,
+            uint64 lastReviewedAt,
+            uint64 lastReviewedInBlock,
+            uint64 mergedAt,
+            uint64 mergedInBlock
+        )
+    {
+        Repo storage repo = repos[repoId];
+        require(repo.exists, "Repo not found");
+        require(proposalId < repo.proposalCount, "Proposal not found");
+
+        Proposal storage proposal = proposals[repoId][proposalId];
+        return (
+            proposal.submittedAt,
+            proposal.submittedInBlock,
+            proposal.lastReviewedAt,
+            proposal.lastReviewedInBlock,
+            proposal.mergedAt,
+            proposal.mergedInBlock
+        );
+    }
+
     function getReview(bytes32 repoId, uint256 proposalId, address reviewer)
         external
         view
@@ -361,6 +433,30 @@ contract AperioRepositoryRegistry {
         Release storage release_ = releases[repoId][versionKey];
         require(release_.exists, "Release not found");
         return (release_.commitHash, release_.cid);
+    }
+
+    function getReleaseAt(bytes32 repoId, uint256 releaseIndex)
+        external
+        view
+        returns (string memory version, bytes32 commitHash, string memory cid, uint64 createdAt, uint64 createdInBlock)
+    {
+        Repo storage repo = repos[repoId];
+        require(repo.exists, "Repo not found");
+        require(releaseIndex < releaseVersions[repoId].length, "Release not found");
+
+        string storage version_ = releaseVersions[repoId][releaseIndex];
+        bytes32 versionKey = keccak256(bytes(version_));
+        Release storage release_ = releases[repoId][versionKey];
+        return (release_.version, release_.commitHash, release_.cid, release_.createdAt, release_.createdInBlock);
+    }
+
+    function getRepoCount() external view returns (uint256) {
+        return repoIds.length;
+    }
+
+    function getRepoIdAt(uint256 repoIndex) external view returns (bytes32) {
+        require(repoIndex < repoIds.length, "Repo not found");
+        return repoIds[repoIndex];
     }
 
     function getRepoIncentiveTreasury(bytes32 repoId) external view returns (address treasury) {
