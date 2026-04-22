@@ -369,27 +369,41 @@ aperio download aperio aperio-cli --out ./aperio-cli
 				<div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
 					<ul className="space-y-3 text-sm leading-7 text-text-secondary">
 						<li>
-							There could be a slashing mechanism for the maintainer to slash reviewers who
+							- There could be a slashing mechanism for the maintainer to slash reviewers who
 							are not behaving appropriately.
 						</li>
 						<li>
-							If spam becomes a problem, a fee to submit a proposal could be added and then
+							- If spam becomes a problem, a fee to submit a proposal could be added and then
 							released once the proposal gets merged.
 						</li>
 						<li>
-							Restricting an organization name to a single address is not currently
+							- Restricting an organization name to a single address is not currently
 							implemented because the goal is to allow multiple maintainers to operate under
 							the same organization. Governance systems are a natural fit here.
 						</li>
 						<li>
-							The maintainer is limited to a user address in the current demo and MVP, but
+							- The maintainer is limited to a user address in the current demo and MVP, but
 							the intended direction is to let a DAO control the maintainer role so
 							stakeholders of the repository take those decisions collectively.
 						</li>
 						<li>
-							The treasury pays contributors and reviewers, but that is not its only possible
+							- The treasury pays contributors and reviewers, but that is not its only possible
 							use. Those funds could also be used to refresh the latest CID on the Bulletin
 							chain and support other governance-approved actions.
+						</li>
+						<li>
+							- The protocol already tracks releases, but a stronger end-user release
+							download experience would still be valuable, especially for cases where
+							releases point to compressed binaries or other packaged deliverables.
+						</li>
+						<li>
+							- The current architecture limits very large repositories because Bulletin has a
+							maximum amount of data that can be submitted in a practical way for this MVP.
+						</li>
+						<li>
+							- The Statement Store is not used in the MVP, but it could become the basis for
+							a chat or coordination layer between maintainers, reviewers, and contributors
+							when code alone is not enough to explain intent or feedback.
 						</li>
 					</ul>
 				</div>
