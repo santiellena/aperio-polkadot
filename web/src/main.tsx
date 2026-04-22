@@ -13,6 +13,7 @@ const RepoLeaderboardRoute = lazy(() => import("./routes/RepoLeaderboardRoute"))
 // const RepoTreeRoute = lazy(() => import("./routes/RepoTreeRoute"));
 const CreateProposalRoute = lazy(() => import("./routes/CreateProposalRoute"));
 const RepoProposalsRoute = lazy(() => import("./routes/RepoProposalsRoute"));
+const DocsRoute = lazy(() => import("./routes/DocsRoute"));
 const ConfigRoute = lazy(() => import("./routes/ConfigRoute"));
 
 const routeFallback = (
@@ -96,6 +97,14 @@ createRoot(document.getElementById("root")!).render(
 						element={
 							<Suspense fallback={routeFallback}>
 								<CreateProposalRoute />
+							</Suspense>
+						}
+					/>
+					<Route
+						path="docs"
+						element={
+							<Suspense fallback={routeFallback}>
+								<DocsRoute />
 							</Suspense>
 						}
 					/>

@@ -45,6 +45,7 @@ export default function App() {
 					<div className="flex shrink-0 gap-1">
 						<NavItem to="/">Repositories</NavItem>
 						<NavItem to="/leaderboard">Leaderboard</NavItem>
+						<NavItem to="/docs">Docs</NavItem>
 						<NavItem to="/config">Config</NavItem>
 					</div>
 
