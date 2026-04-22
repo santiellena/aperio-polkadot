@@ -8,7 +8,7 @@ import { getClient } from "../../hooks/useChain";
 import { useWalletSession } from "../auth/useWalletSession";
 import { useSubstrateSession } from "../auth/useSubstrateSession";
 import { useChainStore } from "../../store/chainStore";
-import { crrpRegistryAbi, getRegistryAddress, shortenAddress } from "../../lib/crrp";
+import { aperioRegistryAbi, getRegistryAddress, shortenAddress } from "../../lib/aperio";
 
 type RoleFunction = "setReviewerRole" | "setContributorRole";
 
@@ -51,7 +51,7 @@ export function MaintainerPanel({
 
 				const hash = await walletClient.writeContract({
 					address: registryAddress,
-					abi: crrpRegistryAbi,
+					abi: aperioRegistryAbi,
 					functionName: fn,
 					args: [repoId, address as Address, enabled],
 					account: walletClient.account,
@@ -60,7 +60,7 @@ export function MaintainerPanel({
 				await publicClient.waitForTransactionReceipt({ hash });
 			} else if (substrateAccount) {
 				const calldata = encodeFunctionData({
-					abi: crrpRegistryAbi as Abi,
+					abi: aperioRegistryAbi as Abi,
 					functionName: fn,
 					args: [repoId, address as Address, enabled],
 				});

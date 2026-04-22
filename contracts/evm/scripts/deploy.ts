@@ -39,11 +39,11 @@ export const deployments: { evm: string | null; pvm: string | null } = {
 }
 
 async function main() {
-	console.log("Deploying CRRPRepositoryRegistry (EVM/solc)...");
+	console.log("Deploying AperioRepositoryRegistry (EVM/solc)...");
 
 	const [walletClient] = await hre.viem.getWalletClients({ chain: polkadotHubTestnet });
 	const publicClient = await hre.viem.getPublicClient({ chain: polkadotHubTestnet });
-	const artifact = await hre.artifacts.readArtifact("CRRPRepositoryRegistry");
+	const artifact = await hre.artifacts.readArtifact("AperioRepositoryRegistry");
 
 	const hash = await walletClient.deployContract({
 		abi: artifact.abi,
@@ -59,7 +59,7 @@ async function main() {
 		throw new Error(`Deploy tx ${hash} did not create a contract`);
 	}
 
-	console.log(`EVM CRRPRepositoryRegistry deployed to: ${receipt.contractAddress}`);
+	console.log(`EVM AperioRepositoryRegistry deployed to: ${receipt.contractAddress}`);
 	updateDeployments("evm", receipt.contractAddress);
 	console.log("Updated deployments.json");
 }

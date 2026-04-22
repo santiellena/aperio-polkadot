@@ -4,7 +4,7 @@ import {
 	readRepoLeaderboard,
 	type LeaderboardEntry,
 	type LeaderboardSummary,
-} from "../../lib/crrp";
+} from "../../lib/aperio";
 import type { Address, Hex } from "viem";
 
 type LeaderboardState = {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { listRepos, type RepoListItem } from "../../lib/crrp";
+import { listRepos, type RepoListItem } from "../../lib/aperio";
 
 export function useRepoList() {
 	const [repos, setRepos] = useState<RepoListItem[]>([]);

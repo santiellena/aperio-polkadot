@@ -3,7 +3,7 @@ import { keccak256 } from "viem";
 import { useSubstrateSession } from "../features/auth/useSubstrateSession";
 import { useWalletSession } from "../features/auth/useWalletSession";
 import { useRepoOverview } from "../features/repo/useRepoOverview";
-import { formatGitCommitHash, formatRepoTimestamp, shortenAddress, shortenHash } from "../lib/crrp";
+import { formatGitCommitHash, formatRepoTimestamp, shortenAddress, shortenHash } from "../lib/aperio";
 
 export default function RepoHistoryRoute() {
 	const { organization, repository } = useParams();

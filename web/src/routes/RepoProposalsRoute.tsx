@@ -12,14 +12,14 @@ import { useRepoOverview } from "../features/repo/useRepoOverview";
 import { getClient } from "../hooks/useChain";
 import {
 	buildBundleUrl,
-	crrpRegistryAbi,
+	aperioRegistryAbi,
 	formatGitCommitHash,
 	formatRepoTimestamp,
 	getRegistryAddress,
 	readRepoProposals,
 	shortenAddress,
 	type RepoProposal,
-} from "../lib/crrp";
+} from "../lib/aperio";
 import { useChainStore } from "../store/chainStore";
 
 type ReviewReadResult = readonly [boolean, boolean];
@@ -86,7 +86,7 @@ export default function RepoProposalsRoute() {
 							ids.map((i) =>
 								client.readContract({
 									address: registryAddress,
-									abi: crrpRegistryAbi,
+									abi: aperioRegistryAbi,
 									functionName: "getReview",
 									args: [repo.repoId, BigInt(i), effectiveAccount],
 								}) as Promise<ReviewReadResult>,
@@ -136,7 +136,7 @@ export default function RepoProposalsRoute() {
 
 				const hash = await walletClient.writeContract({
 					address: registryAddress,
-					abi: crrpRegistryAbi,
+					abi: aperioRegistryAbi,
 					functionName: "reviewProposal",
 					args: [repo.repoId, BigInt(proposalId), approved],
 					account: walletClient.account,
@@ -145,7 +145,7 @@ export default function RepoProposalsRoute() {
 				await publicClient.waitForTransactionReceipt({ hash });
 			} else if (substrateAccount) {
 				const calldata = encodeFunctionData({
-					abi: crrpRegistryAbi as Abi,
+					abi: aperioRegistryAbi as Abi,
 					functionName: "reviewProposal",
 					args: [repo.repoId, BigInt(proposalId), approved],
 				});

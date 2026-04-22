@@ -10,12 +10,12 @@ import { checkBulletinAuthorization, uploadToBulletin } from "../../hooks/useBul
 import { getClient } from "../../hooks/useChain";
 import {
 	buildBundleUrl,
-	crrpRegistryAbi,
+	aperioRegistryAbi,
 	formatGitCommitHash,
 	getRegistryAddress,
 	gitCommitHashToBytes32,
 	shortenAddress,
-} from "../../lib/crrp";
+} from "../../lib/aperio";
 import { useChainStore } from "../../store/chainStore";
 import { hexHashToCid } from "../../utils/cid";
 import { hashFileWithBytes } from "../../utils/hash";
@@ -182,7 +182,7 @@ export function MergePanel({
 
 				const txHash = await walletClient.writeContract({
 					address: registryAddress,
-					abi: crrpRegistryAbi,
+					abi: aperioRegistryAbi,
 					functionName: "mergeProposal",
 					args: [repoId, BigInt(proposalId), finalCommitBytes32, effectiveCid],
 					account: walletClient.account,
@@ -191,7 +191,7 @@ export function MergePanel({
 				await publicClient.waitForTransactionReceipt({ hash: txHash });
 			} else if (substrateAccount) {
 				const calldata = encodeFunctionData({
-					abi: crrpRegistryAbi as Abi,
+					abi: aperioRegistryAbi as Abi,
 					functionName: "mergeProposal",
 					args: [repoId, BigInt(proposalId), finalCommitBytes32, effectiveCid],
 				});

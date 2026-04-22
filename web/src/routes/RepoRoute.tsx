@@ -13,7 +13,7 @@ import {
 	formatRepoTimestamp,
 	shortenAddress,
 	shortenHash,
-} from "../lib/crrp";
+} from "../lib/aperio";
 
 export default function RepoRoute() {
 	const { organization, repository } = useParams();

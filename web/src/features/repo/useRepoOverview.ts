@@ -4,7 +4,7 @@ import {
 	normalizeRepoSlugPart,
 	readRepoOverview,
 	type RepoOverview,
-} from "../../lib/crrp";
+} from "../../lib/aperio";
 import type { Address } from "viem";
 
 export function useRepoOverview(

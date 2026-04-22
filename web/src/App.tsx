@@ -2,9 +2,9 @@ import { Link, NavLink, Outlet } from "react-router-dom";
 import { useWalletSession } from "./features/auth/useWalletSession";
 import { useSubstrateSession } from "./features/auth/useSubstrateSession";
 import { MapAccountButton } from "./components/MapAccountButton";
-import { DEFAULT_REGISTRY_ADDRESS } from "./config/crrp";
-import { shortenAddress } from "./lib/crrp";
-import crrpLogo from "./assets/crrp-logo.png";
+import { DEFAULT_REGISTRY_ADDRESS } from "./config/aperio";
+import { shortenAddress } from "./lib/aperio";
+import aperioLogo from "./assets/aperio-logo.png";
 
 export default function App() {
 	const { account, sourceLabel } = useWalletSession();
@@ -26,7 +26,7 @@ export default function App() {
 				<div className="mx-auto flex max-w-7xl items-center gap-3 overflow-x-auto px-4 py-3">
 					<Link to="/" className="flex shrink-0 items-center gap-3">
 							<img
-								src={crrpLogo}
+								src={aperioLogo}
 								alt="Aperio logo"
 								className="h-10 w-10 rounded-lg object-cover"
 							/>

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useRepoOverview } from "../features/repo/useRepoOverview";
-import { deriveRepoId, shortenHash } from "../lib/crrp";
+import { deriveRepoId, shortenHash } from "../lib/aperio";
 
 const commandBlock =
 	"rounded-xl border border-white/[0.06] bg-black/25 p-4 font-mono text-[12px] text-text-primary overflow-x-auto";

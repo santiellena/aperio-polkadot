@@ -10,14 +10,14 @@ import { useWalletSession } from "../features/auth/useWalletSession";
 import { getClient } from "../hooks/useChain";
 import { checkBulletinAuthorization, uploadToBulletin } from "../hooks/useBulletin";
 import {
-	crrpRegistryAbi,
+	aperioRegistryAbi,
 	deriveRepoId,
 	getRegistryAddress,
 	gitCommitHashToBytes32,
 	isValidRepoSlugPart,
 	normalizeRepoSlugPart,
 	shortenAddress,
-} from "../lib/crrp";
+} from "../lib/aperio";
 import { useChainStore } from "../store/chainStore";
 import { hexHashToCid } from "../utils/cid";
 import { hashFileWithBytes } from "../utils/hash";
@@ -234,7 +234,7 @@ export default function CreateProposalRoute() {
 			setStatus("Submitting proposal to registry...");
 			await execContractWrite({
 				address: registryAddress,
-				abi: crrpRegistryAbi as Abi,
+				abi: aperioRegistryAbi as Abi,
 				functionName: "submitProposal",
 				args: [repoId, proposedCommitBytes32, effectiveCid],
 			});

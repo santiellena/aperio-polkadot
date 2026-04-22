@@ -1,22 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { encodeFunctionData, isAddress, keccak256, parseEther, type Abi, type Address, type Hex } from "viem";
-import { ZERO_ADDRESS } from "../config/crrp";
+import { ZERO_ADDRESS } from "../config/aperio";
 import { getPublicClient } from "../config/evm";
 import { getStoredEthRpcUrl } from "../config/network";
 import { useSubstrateSession } from "../features/auth/useSubstrateSession";
 import { useWalletSession } from "../features/auth/useWalletSession";
 import { checkBulletinAuthorization, uploadToBulletin } from "../hooks/useBulletin";
 import {
-	crrpRegistryAbi,
-	crrpTreasuryAbi,
+	aperioRegistryAbi,
+	aperioTreasuryAbi,
 	deriveRepoId,
 	getRegistryAddress,
 	gitCommitHashToBytes32,
 	isValidRepoSlugPart,
 	normalizeRepoSlugPart,
 	shortenAddress,
-} from "../lib/crrp";
+} from "../lib/aperio";
 import { hexHashToCid } from "../utils/cid";
 import { hashFileWithBytes } from "../utils/hash";
 import { Binary, FixedSizeBinary } from "polkadot-api";
@@ -270,7 +270,7 @@ export default function CreateRepoRoute() {
 			setStatus("Submitting createRepo transaction...");
 			await execContractWrite({
 				address: registryAddress,
-				abi: crrpRegistryAbi as Abi,
+				abi: aperioRegistryAbi as Abi,
 				functionName: "createRepo",
 				args: [normalizedOrganization, normalizedRepository, headCommitBytes32, effectiveCid, permissionlessContributions],
 			});
@@ -283,7 +283,7 @@ export default function CreateRepoRoute() {
 					setStatus(`Granting contributor role to ${contributorAddress}...`);
 					await execContractWrite({
 						address: registryAddress,
-						abi: crrpRegistryAbi as Abi,
+						abi: aperioRegistryAbi as Abi,
 						functionName: "setContributorRole",
 						args: [repoId as Hex, contributorAddress, true],
 					});
@@ -294,7 +294,7 @@ export default function CreateRepoRoute() {
 				setStatus("Granting reviewer role...");
 				await execContractWrite({
 					address: registryAddress,
-					abi: crrpRegistryAbi as Abi,
+					abi: aperioRegistryAbi as Abi,
 					functionName: "setReviewerRole",
 					args: [repoId, reviewer as Address, true],
 				});
@@ -302,7 +302,7 @@ export default function CreateRepoRoute() {
 
 			const treasuryAddress = (await publicClient.readContract({
 				address: registryAddress,
-				abi: crrpRegistryAbi,
+				abi: aperioRegistryAbi,
 				functionName: "getRepoIncentiveTreasury",
 				args: [repoId],
 			})) as Address;
@@ -315,7 +315,7 @@ export default function CreateRepoRoute() {
 				setStatus("Configuring treasury payout rewards...");
 				await execContractWrite({
 					address: treasuryAddress,
-					abi: crrpTreasuryAbi as Abi,
+					abi: aperioTreasuryAbi as Abi,
 					functionName: "setPayoutConfig",
 					args: [repoId, contributionRewardAmount, reviewRewardAmount],
 				});
@@ -328,7 +328,7 @@ export default function CreateRepoRoute() {
 				setStatus("Funding treasury...");
 				await execContractWrite({
 					address: treasuryAddress,
-					abi: crrpTreasuryAbi as Abi,
+					abi: aperioTreasuryAbi as Abi,
 					functionName: "donate",
 					args: [repoId],
 					value: initialDonationAmount,

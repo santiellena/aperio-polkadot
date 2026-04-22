@@ -2,7 +2,7 @@ import { useState } from "react";
 import { encodeFunctionData, keccak256, parseEther, type Abi } from "viem";
 import { Binary, FixedSizeBinary } from "polkadot-api";
 import { stack_template } from "@polkadot-api/descriptors";
-import { crrpTreasuryAbi, formatEthAmount, shortenAddress } from "../../lib/crrp";
+import { aperioTreasuryAbi, formatEthAmount, shortenAddress } from "../../lib/aperio";
 import { useWalletSession } from "../auth/useWalletSession";
 import { useSubstrateSession } from "../auth/useSubstrateSession";
 import { getClient } from "../../hooks/useChain";
@@ -76,7 +76,7 @@ export function TreasuryDonationCard({
 			const walletClient = await getWalletClientForWrite();
 			const hash = await walletClient.writeContract({
 				address: treasuryAddress,
-				abi: crrpTreasuryAbi,
+				abi: aperioTreasuryAbi,
 				functionName: opts.functionName,
 				args: opts.args,
 				value: opts.value,
@@ -90,7 +90,7 @@ export function TreasuryDonationCard({
 
 		if (substrateAccount) {
 			const calldata = encodeFunctionData({
-				abi: crrpTreasuryAbi as Abi,
+				abi: aperioTreasuryAbi as Abi,
 				functionName: opts.functionName,
 				args: opts.args,
 			});

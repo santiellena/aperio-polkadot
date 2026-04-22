@@ -58,29 +58,26 @@ You can also deploy each project directly with `npm run deploy:testnet`.
 
 The deploy scripts update:
 
-- `deployments.json` in the repo root for CLI usage
+- `deployments.json` in the repo root
 - [`../web/src/config/deployments.ts`](../web/src/config/deployments.ts) for the frontend
 
-## Register CRRP Repo
+## Register Aperio Repo
 
-Preferred path: use the Rust CLI so repo registration matches the same CRRP flow used by contributors.
+Use the Node.js CLI in [`../cli/aperio/`](../cli/aperio/) to register a repo — it uploads the bundle to the Bulletin chain (signed by Alice) and calls `createRepo` on the registry (signed by a user-provided SURI).
 
 ```bash
-cargo run -p stack-cli -- create-repo \
-  --repo /path/to/repo \
-  --organization acme \
-  --repository crrp \
-  --registry 0x<registry-address> \
-  --signer alice \
-  --initial-cid mock://init
+cd cli/aperio && npm install
+./bin/aperio.mjs import "//Alice"
+./bin/aperio.mjs create-repo acme my-repo \
+  --bundle /path/to/repo.bundle \
+  --repo /path/to/repo
 ```
 
 Notes:
 
-- Repo ID is now derived on-chain and in clients as `keccak256("organization/repository")`.
-- `--initial-commit` defaults to `HEAD`.
-- Contributor/reviewer roles are granted by default to signer-derived addresses (override with `--contributor` / `--reviewer`).
-- Use `--skip-role-grants` if you only want `createRepo`.
+- Repo ID is derived on-chain and in clients as `keccak256("organization/name")`.
+- `--head <commit>` overrides the HEAD read from `--repo`.
+- Pass `--permissionless` to allow any address to submit proposals, or grant roles explicitly with `--contributor <address>` / `--reviewer <address>` (repeatable).
 
 ## Common Commands
 

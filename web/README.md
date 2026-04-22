@@ -11,7 +11,7 @@ The app uses:
 - [viem](https://viem.sh/) for EVM and PVM contract interaction through `eth-rpc`
 - Zustand for state management
 
-Key pages now focus on the CRRP MVP:
+Key pages now focus on the Aperio MVP:
 
 - repository discovery
 - repository overview

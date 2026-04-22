@@ -5,7 +5,7 @@ import { useSubstrateSession } from "../features/auth/useSubstrateSession";
 import { useWalletSession } from "../features/auth/useWalletSession";
 import { type FileEntry, isBinaryPath, useGitBundle } from "../features/git/useGitBundle";
 import { useRepoOverview } from "../features/repo/useRepoOverview";
-import { buildBundleUrl, formatGitCommitHash } from "../lib/crrp";
+import { buildBundleUrl, formatGitCommitHash } from "../lib/aperio";
 
 export default function RepoTreeRoute() {
 	const { organization, repository } = useParams();

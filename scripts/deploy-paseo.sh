@@ -14,14 +14,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Deploy EVM contract (solc)
-echo "[1/2] Deploying CRRP via EVM (solc)..."
+echo "[1/2] Deploying Aperio via EVM (solc)..."
 cd "$ROOT_DIR/contracts/evm"
 npm install
 npx hardhat compile
 npm run deploy:testnet
 
 # Deploy PVM contract (resolc)
-echo "[2/2] Deploying CRRP via PVM (resolc)..."
+echo "[2/2] Deploying Aperio via PVM (resolc)..."
 cd "$ROOT_DIR/contracts/pvm"
 npm install
 npx hardhat compile

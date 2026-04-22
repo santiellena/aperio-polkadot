@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { DEFAULT_REPO_NAME, DEFAULT_REPO_ORGANIZATION } from "../config/crrp";
+import { DEFAULT_REPO_NAME, DEFAULT_REPO_ORGANIZATION } from "../config/aperio";
 import {
 	deriveRepoId,
 	formatEthAmount,
@@ -10,7 +10,7 @@ import {
 	normalizeRepoSlugPart,
 	shortenAddress,
 	shortenHash,
-} from "../lib/crrp";
+} from "../lib/aperio";
 import { useRepoList } from "../features/repo/useRepoList";
 
 export default function HomeRoute() {

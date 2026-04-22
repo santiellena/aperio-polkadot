@@ -3,7 +3,7 @@ import { useChainStore } from "../store/chainStore";
 import { useSubstrateSession } from "../features/auth/useSubstrateSession";
 import { type InjectedPolkadotAccount } from "polkadot-api/pjs-signer";
 import { keccak256 } from "viem";
-import { DEFAULT_REGISTRY_ADDRESS } from "../config/crrp";
+import { DEFAULT_REGISTRY_ADDRESS } from "../config/aperio";
 import { SpektrExtensionName } from "@novasamatech/product-sdk";
 
 function deriveH160(publicKey: Uint8Array): `0x${string}` {

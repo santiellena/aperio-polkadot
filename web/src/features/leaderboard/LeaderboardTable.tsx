@@ -3,7 +3,7 @@ import {
 	formatRepoTimestamp,
 	type LeaderboardEntry,
 	type LeaderboardSummary,
-} from "../../lib/crrp";
+} from "../../lib/aperio";
 
 export function LeaderboardSummaryCards({ summary }: { summary: LeaderboardSummary }) {
 	return (

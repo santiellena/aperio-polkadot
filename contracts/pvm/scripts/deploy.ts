@@ -6,7 +6,7 @@ import { defineChain } from "viem";
 const polkadotHubTestnet = defineChain({
 	id: 420420417,
 	name: "Polkadot Hub TestNet",
-	nativeCurrency: { name: "Unit", symbol: "UNIT", decimals: 18 },
+	nativeCurrency: { name: "Paseo", symbol: "PAS", decimals: 18 },
 	rpcUrls: {
 		default: { http: ["https://services.polkadothub-rpc.com/testnet"] },
 	},
@@ -39,11 +39,11 @@ export const deployments: { evm: string | null; pvm: string | null } = {
 }
 
 async function main() {
-	console.log("Deploying CRRP (PVM/resolc)...");
+	console.log("Deploying Aperio (PVM/resolc)...");
 
 	const [walletClient] = await hre.viem.getWalletClients({ chain: polkadotHubTestnet });
 	const publicClient = await hre.viem.getPublicClient({ chain: polkadotHubTestnet });
-	const artifact = await hre.artifacts.readArtifact("CRRPRepositoryRegistry");
+	const artifact = await hre.artifacts.readArtifact("AperioRepositoryRegistry");
 
 	const hash = await walletClient.deployContract({
 		abi: artifact.abi,
@@ -59,7 +59,7 @@ async function main() {
 		throw new Error(`Deploy tx ${hash} did not create a contract`);
 	}
 
-	console.log(`PVM ProofOfExistence deployed to: ${receipt.contractAddress}`);
+	console.log(`PVM AperioRepositoryRegistry deployed to: ${receipt.contractAddress}`);
 	updateDeployments("pvm", receipt.contractAddress);
 	console.log("Updated deployments.json");
 }
