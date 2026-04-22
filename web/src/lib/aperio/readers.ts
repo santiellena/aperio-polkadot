@@ -101,7 +101,12 @@ async function getRepoTreasurySnapshot(repoId: Hex): Promise<{
 
 	const client = getPublicClient(getStoredEthRpcUrl());
 	const [treasuryBalance, participantCount] = await Promise.all([
-		client.getBalance({ address: treasuryAddress }),
+		client.readContract({
+			address: treasuryAddress,
+			abi: aperioTreasuryAbi,
+			functionName: "getRepoBalance",
+			args: [repoId],
+		}) as Promise<bigint>,
 		client.readContract({
 			address: treasuryAddress,
 			abi: aperioTreasuryAbi,
@@ -639,14 +644,7 @@ export async function readGlobalLeaderboard() {
 				address: await getRepoTreasuryAddress(repo.repoId),
 			})),
 		)
-	)
-		.filter((target): target is { repoId: Hex; address: Address } => Boolean(target.address))
-		.filter(
-			(target, index, all) =>
-				all.findIndex(
-					(candidate) => candidate.address.toLowerCase() === target.address.toLowerCase(),
-				) === index,
-		);
+	).filter((target): target is { repoId: Hex; address: Address } => Boolean(target.address));
 
 	return aggregateLeaderboard(repoCatalog, treasuryTargets);
 }
