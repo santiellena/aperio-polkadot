@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { encodeFunctionData, isAddress, keccak256, parseEther, type Abi, type Address, type Hex } from "viem";
+import { encodeFunctionData, isAddress, keccak256, parseUnits, type Abi, type Address, type Hex } from "viem";
 import { ZERO_ADDRESS } from "../config/aperio";
 import { getPublicClient } from "../config/evm";
 import { getStoredEthRpcUrl } from "../config/network";
@@ -26,14 +26,14 @@ import { useChainStore } from "../store/chainStore";
 
 type AuthorizationState = "idle" | "checking" | "authorized" | "unauthorized";
 
-function parseOptionalEthAmount(value: string, label: string) {
+function parseOptionalEthAmount(value: string, label: string, decimals = 18) {
 	const trimmed = value.trim();
 	if (!trimmed) {
 		return 0n;
 	}
 
 	try {
-		return parseEther(trimmed);
+		return parseUnits(trimmed, decimals);
 	} catch {
 		throw new Error(`${label} must be a valid PAS amount`);
 	}
@@ -187,7 +187,11 @@ export default function CreateRepoRoute() {
 				"Contributor reward",
 			);
 			const reviewRewardAmount = parseOptionalEthAmount(reviewReward, "Reviewer reward");
-			const initialDonationAmount = parseOptionalEthAmount(initialDonation, "Initial donation");
+			const initialDonationAmount = parseOptionalEthAmount(
+				initialDonation,
+				"Initial donation",
+				account ? 18 : 12,
+			);
 			const headCommitBytes32 = gitCommitHashToBytes32(initialHeadCommit);
 			const repoId = deriveRepoId(normalizedOrganization, normalizedRepository);
 
