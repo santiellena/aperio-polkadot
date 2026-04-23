@@ -90,23 +90,116 @@ jobs:
     needs: [check, build]
     if: needs.check.outputs.cache-hit != 'true' || inputs.skip-cache
     name: Deploy
-    uses: paritytech/dotns-sdk/.github/workflows/deploy.yml@main
-    with:
-      basename: ${{ inputs.basename }}
-      mode: production
-      artifact-name: frontend-build
-      register-base: true
-      skip-cache: ${{ inputs.skip-cache || false }}
-      max-retries: 3
+    runs-on: ubuntu-latest
+    env:
       # Match the RPC endpoints the frontend uses so deploys hit the same
       # nodes that end users do (see web/src/hooks/useBulletin.ts and
       # web/src/config/network.ts). The CLI defaults have been unreachable.
-      bulletin-rpc: wss://paseo-bulletin-rpc.polkadot.io
-      rpc: wss://asset-hub-paseo.dotters.network
-    secrets:
-      # Falls back to Alice's dev account if DOTNS_MNEMONIC is not set.
-      # Alice works for free registration on Paseo testnet.
-      dotns-mnemonic: ${{ secrets.DOTNS_MNEMONIC || 'bottom drive obey lake curtain smoke basket hold race lonely fit walk' }}
+      DOTNS_BULLETIN_RPC: wss://paseo-bulletin-rpc.polkadot.io
+      DOTNS_ASSET_HUB_RPC: wss://asset-hub-paseo.dotters.network
+    steps:
+      - name: Checkout DotNS SDK actions
+        uses: actions/checkout@v4
+        with:
+          repository: paritytech/dotns-sdk
+          ref: main
+          sparse-checkout: |
+            .github/actions
+            packages/cli
+            packages/ui/package.json
+            packages/ui/.papi
+            package.json
+            bun.lock
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: build
+
+      - name: Setup DotNS CLI
+        uses: ./.github/actions/setup-cli
+        with:
+          source: release
+
+      - name: Export CAR file
+        id: car
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! command -v ipfs &>/dev/null; then
+            echo "Installing IPFS Kubo..."
+            wget -qO- https://dist.ipfs.tech/kubo/v0.33.2/kubo_v0.33.2_linux-amd64.tar.gz | tar xz
+            sudo mv kubo/ipfs /usr/local/bin/
+            rm -rf kubo
+          fi
+
+          ipfs init --profile server 2>/dev/null || true
+
+          CID=$(ipfs add -Q -r --cid-version=1 --raw-leaves --pin=false ./build)
+          ipfs dag export "$CID" > build.car
+          SIZE=$(stat --printf='%s' build.car)
+
+          echo "ipfs-cid=$CID" >> "$GITHUB_OUTPUT"
+          echo "::notice::CAR file created: $(numfmt --to=iec $SIZE) - IPFS CID: $CID"
+
+      - name: Upload to Bulletin
+        id: bulletin
+        uses: ./.github/actions/bulletin
+        with:
+          mnemonic: ${{ secrets.BULLETIN_MNEMONIC || 'bottom drive obey lake curtain smoke basket hold race lonely fit walk' }}
+          bulletin-rpc: ${{ env.DOTNS_BULLETIN_RPC }}
+          build-path: ./build.car
+          upload-concurrency: 4
+          max-retries: 3
+          retry-delay: 15
+          cache: false
+        env:
+          # Work around dotns-sdk's nested authorize path, which currently
+          # builds its Bulletin signer context from DOTNS_RPC instead of the
+          # bulletin-rpc input before submitting the authorization transaction.
+          DOTNS_RPC: ${{ env.DOTNS_BULLETIN_RPC }}
+
+      - name: Register and set contenthash
+        uses: ./.github/actions/dotns
+        with:
+          # Falls back to Alice's dev account if DOTNS_MNEMONIC is not set.
+          # Alice works for free registration on Paseo testnet.
+          mnemonic: ${{ secrets.DOTNS_MNEMONIC || 'bottom drive obey lake curtain smoke basket hold race lonely fit walk' }}
+          rpc: ${{ env.DOTNS_ASSET_HUB_RPC }}
+          basename: ${{ inputs.basename }}
+          mode: production
+          domain: ${{ inputs.basename }}
+          register-base: true
+          cid: ${{ steps.bulletin.outputs.cid }}
+          max-retries: 3
+          retry-delay: 15
+        env:
+          # The DotNS composite action has lookup/register substeps that do
+          # not pass the rpc input through to the CLI, so set the env fallback.
+          DOTNS_RPC: ${{ env.DOTNS_ASSET_HUB_RPC }}
+
+      - name: Summary
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## Deployment Complete
+
+          | Property | Value |
+          |----------|-------|
+          | Mode | \`production\` |
+          | Domain | \`${BASENAME}.dot\` |
+          | CID | \`${CID}\` |
+          | URL | [https://${BASENAME}.dot.li](https://${BASENAME}.dot.li) |
+          EOF
+        env:
+          BASENAME: ${{ inputs.basename }}
+          CID: ${{ steps.bulletin.outputs.cid }}
 
   post-deploy:
     needs: [check, deploy]
