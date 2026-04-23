@@ -1,13 +1,17 @@
 # aperio — Aperio command-line client
 
-`aperio` is a Node.js CLI for the **Censorship-Resistant Repository Platform (Aperio)**.
-It lets developers run the full repository workflow — create, propose, review, merge, download —
-without opening the web app. All on-chain writes are signed locally from a Substrate
-key you provide via SURI (mnemonic, `//Alice`, or a raw 32-byte seed).
+`aperio` is a Node.js CLI for the **Aperio censorship-resistant repository registry**.
+It lets developers run the current MVP workflow — create, propose, review, merge,
+manage roles, inspect state, and download — without opening the web app.
+
+All current on-chain writes are signed locally from a Substrate key you provide via
+SURI (mnemonic, `//Alice`, or a raw 32-byte seed). This is a testnet/dev signing
+model. For production, Aperio's direction is external wallet signing rather than
+persisting private key material in the CLI.
 
 ```
-┌──────────┐  signed extrinsics (sr25519)   ┌───────────────────────┐
-│   aperio   │ ─────────────────────────────▶ │ Paseo Hub TestNet     │
+┌──────────┐  signed extrinsics (sr25519)    ┌───────────────────────┐
+│   aperio │ ─────────────────────────────▶ │Paseo Asset Hub        |
 │  (this)  │                                 │ + Bulletin chain      │
 └──────────┘                                 └───────────────────────┘
 ```
@@ -38,6 +42,10 @@ Bundle uploads to the Bulletin chain are signed with **`//Alice`** (pre-authoris
 The CLI derives Alice locally from the well-known dev phrase — you don't need to
 fund anything for storage.
 
+The CLI does not currently expose a `release` command. Releases are implemented in
+the registry contract and can be read by the app, but release creation is not part
+of this CLI surface yet.
+
 ## Install
 
 From the repository root:
@@ -47,7 +55,7 @@ cd cli/aperio
 npm install
 ```
 
-Link the binary globally (optional — lets you run `aperio` from anywhere):
+Link the binary globally (optional, lets you run `aperio` from anywhere):
 
 ```sh
 npm link
@@ -79,11 +87,13 @@ aperio create-repo my-org my-repo \
 git bundle create /tmp/my-repo-update.bundle --all
 aperio propose my-org my-repo --bundle /tmp/my-repo-update.bundle --repo .
 
-# 6. As a reviewer — review and merge.
+# 6. As a reviewer — record a decision.
 aperio review my-org my-repo 0 --approve
+
+# 7. As the maintainer — merge the approved proposal.
 aperio merge  my-org my-repo 0
 
-# 7. Anyone — download the repository via its on-chain HEAD CID.
+# 8. Anyone — download the repository via its on-chain HEAD CID.
 aperio download my-org my-repo --out ./cloned-repo
 ```
 
@@ -93,17 +103,19 @@ Run `aperio --help` or `aperio <command> --help` for full flag details.
 
 | Command                                                | What it does                                                                     |
 | ------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| `import <suri>`                                        | Store a Substrate key under `~/.aperio/session.json`.                              |
+| `import <suri>`                                        | Store a testnet/dev SURI under `~/.aperio/session.json`.                          |
 | `whoami`                                               | Print the imported account, its H160, registry, WS URL.                          |
 | `map`                                                  | One-time `pallet_revive::map_account` so the H160 can receive contract state.    |
 | `create-repo <org> <name> --bundle <path>`             | Upload bundle to Bulletin (Alice) + register repo via `Revive.call(createRepo)`. |
 | `propose <org> <name> --bundle <path>`                 | Upload bundle + submit a proposal.                                               |
 | `review <org> <name> <proposalId> --approve\|--reject` | Record a review vote.                                                            |
-| `merge <org> <name> <proposalId>`                      | Merge a proposal, defaulting to its own commit & CID.                            |
+| `merge <org> <name> <proposalId>`                      | Record the maintainer's merge result, defaulting to the proposal commit & CID.    |
 | `set-contributor <org> <name> <address>` (`--revoke`)  | Add/remove a contributor on a whitelist repo.                                    |
 | `set-reviewer <org> <name> <address>` (`--revoke`)     | Add/remove a reviewer.                                                           |
 | `download <org> <name> --out <dir>`                    | Resolve HEAD CID on-chain → fetch bundle from the IPFS gateway → `git clone`.    |
 | `info <org> <name>`                                    | Print on-chain repo metadata (maintainer, HEAD, counts).                         |
+
+Not implemented yet: `release`, `fetch`, `status`, `repo`, `proposals`.
 
 ### Common options
 
@@ -115,8 +127,8 @@ Run `aperio --help` or `aperio <command> --help` for full flag details.
 
 ## How signing works
 
-Aperio is an EVM contract (Solidity, deployed via `pallet-revive` on the Polkadot Hub TestNet).
-The CLI does not submit EVM transactions directly — instead it:
+Aperio is an EVM (and PVM) contract (Solidity, deployed via `pallet-revive` on the Polkadot Hub TestNet).
+The CLI does not submit EVM transactions directly, instead it:
 
 1. Encodes the Aperio calldata with `viem.encodeFunctionData`.
 2. Wraps that calldata in a `pallet_revive::call(dest, value, weight_limit, storage_deposit_limit, data)`

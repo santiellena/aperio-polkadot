@@ -8,8 +8,16 @@ The app focuses on the current Aperio MVP:
 - proposal submission and review
 - maintainer merge flow
 - canonical commit history
+- release history display
 - treasury donation and rewards
 - wallet and network configuration
+
+Repository code is not stored by the frontend or the contract. Users provide Git
+bundle CIDs, Bulletin stores the bundle bytes, and the registry records canonical
+commits and bundle pointers.
+
+Release creation exists in the contract layer, but the current frontend treats
+release history as a read surface rather than a release-management workflow.
 
 ## Local Development
 

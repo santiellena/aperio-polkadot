@@ -4,13 +4,19 @@ This guide covers the remaining deployable Aperio surfaces: contracts and fronte
 
 ## Contracts
 
-Target: Polkadot TestNet (`420420417`).
+Target: Paseo (`420420417`).
 
 ```bash
 cd contracts/evm && npx hardhat vars set PRIVATE_KEY
 cd ../pvm && npx hardhat vars set PRIVATE_KEY
 cd ../..
 ./scripts/deploy-paseo.sh
+```
+
+Equivalent Makefile target:
+
+```bash
+make deploy-paseo
 ```
 
 The deploy scripts write the resulting addresses to:
@@ -37,7 +43,13 @@ Deploy locally through Bulletin/IPFS:
 ./scripts/deploy-frontend.sh --domain aperio00.dot
 ```
 
-Deploy through GitHub Actions:
+Equivalent Makefile target:
+
+```bash
+make deploy-frontend DOMAIN=aperio00.dot
+```
+
+Deploy through GitHub Actions (recommended path):
 
 1. Open `Actions`.
 2. Run `Deploy Frontend to DotNS`.
@@ -46,6 +58,7 @@ Deploy through GitHub Actions:
 ## Required Secrets
 
 - `PRIVATE_KEY` in Hardhat vars for contract deployment.
+- `MNEMONIC` locally, or a Hardhat `MNEMONIC` var, for frontend deployment when you do not want deploy-tool defaults.
 - `DOTNS_MNEMONIC` in GitHub Actions if you do not want the workflow fallback account.
 - `BULLETIN_MNEMONIC` in GitHub Actions if you do not want the workflow fallback account.
 
