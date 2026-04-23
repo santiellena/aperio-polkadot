@@ -1,3 +1,5 @@
+# Notes on the project status (MVP)
+
 - There could be a "slashing" mechanism for the maintainer to slash reviewers who are not behaving appropiately.
 
 - In case the spam becomes a problem a fee to submit a proposal could be included. And released then once the proposal gets merged.

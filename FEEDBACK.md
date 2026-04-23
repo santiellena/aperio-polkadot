@@ -6,7 +6,9 @@
 
 - The code of most tools don't have a good deep technical documentation or explaination on what is going on.
 
-- 
+- I tried hard to create a tool for apps running on the terminal, where the flow is `Auth with QR -> Creating extrinsic -> Requesting pwallet to approve -> Receive approval -> Submit`. The most hard part was actually "Requesting pwallet to approve"
+
+- It would be REALLY nice to have an XCM course in https://dotcodeschool.com/
 
 ## PBP
 

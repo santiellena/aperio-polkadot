@@ -1,6 +1,12 @@
 # Aperio
 
-Aperio is a censorship-resistant repository registry. Git keeps code and history off-chain, Bulletin stores Git bundle artifacts, and the smart contract records canonical repository decisions: HEAD, proposals, reviews, merges, and releases.
+Aperio is a censorship-resistant repository platform. Git keeps code and history off-chain, Bulletin stores Git bundle artifacts, and the smart contract records canonical repository decisions: HEAD, proposals, reviews, merges, and releases.
+
+The core flow is:
+
+```text
+Git -> Bundle -> Upload -> CID -> Contract -> HEAD
+```
 
 ## Project Scope
 
@@ -14,6 +20,12 @@ The old Polkadot runtime/pallet template has been removed. Aperio targets existi
 
 ## Quick Start
 
+Prerequisites:
+
+- Node.js 22
+- npm 10+
+- git
+
 Install and build the frontend:
 
 ```bash
@@ -26,7 +38,8 @@ Run the web app locally:
 
 ```bash
 cd web
-npm run dev
+npm run dev:paseo
+# Then open this link: https://dot.li/localhost:5173
 ```
 
 Install the CLI:
@@ -34,7 +47,8 @@ Install the CLI:
 ```bash
 cd cli/aperio
 npm install
-node ./bin/aperio.mjs --help
+npm link
+aperio --help
 ```
 
 Run contract tests:
@@ -51,28 +65,35 @@ npm test
 
 ## Deployment
 
-Deploy contracts to Polkadot TestNet:
+Deploy contracts to Polkadot Testnet (Paseo):
 
 ```bash
+# For Paseo you can set Alice private key: 
+# 0x5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133
 cd contracts/evm && npx hardhat vars set PRIVATE_KEY
 cd ../pvm && npx hardhat vars set PRIVATE_KEY
 cd ../..
 ./scripts/deploy-paseo.sh
 ```
 
-Deploy the frontend via the GitHub Actions DotNS workflow or locally with:
-
-```bash
-./scripts/deploy-frontend.sh --domain aperio00.dot
-```
+Deploy the frontend via the GitHub Actions.
 
 ## Documentation
 
 - [docs/PROJECT.md](docs/PROJECT.md) - Aperio architecture and protocol model.
-- [docs/CLI.md](docs/CLI.md) - CLI developer experience specification.
+- [docs/CLI.md](docs/CLI.md) - Current CLI behavior and target developer experience.
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) - Contract and frontend deployment notes.
 - [contracts/README.md](contracts/README.md) - Contract project commands.
 - [cli/aperio/README.md](cli/aperio/README.md) - CLI command reference.
+- [web/README.md](web/README.md) - Frontend development notes.
+- [scripts/README.md](scripts/README.md) - Deployment helper scripts.
+
+## Current MVP Status
+
+- Contracts implement repository creation, proposals, reviews, maintainer merges, canonical HEAD tracking, releases, roles, and pull-based rewards.
+- The CLI implements create, propose, review, merge, role management, download, and info commands.
+- The frontend supports repository discovery and operation flows, and reads canonical history.
+- Release creation exists in the contract layer; a dedicated CLI/web release command is not part of the current MVP surface yet.
 
 ## Invariants
 
@@ -80,4 +101,4 @@ Deploy the frontend via the GitHub Actions DotNS workflow or locally with:
 - Bulletin stores bundle bytes addressed by CID.
 - The contract selects canonical truth.
 - Releases point only to accepted commits.
-- The CLI orchestrates actions and must not store private keys for production use.
+- Production signing should be wallet or environment-driven. The current CLI includes a plaintext SURI import helper for testnet/dev accounts only.

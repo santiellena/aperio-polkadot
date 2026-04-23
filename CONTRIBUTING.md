@@ -1,4 +1,4 @@
-# 🤝 CONTRIBUTING.md
+# CONTRIBUTING
 
 ## Overview
 
@@ -12,18 +12,18 @@ The goal is:
 
 ---
 
-## 🧠 Core Principles
+## Core Principles
 
 1. One commit = one logical change  
-2. One branch = one feature or fix  
+2. Aperio's protocol model has one canonical branch: `main`
 3. History must be readable as documentation  
 4. Separate concerns (logic, refactor, docs, formatting)  
 
 ---
 
-## 📌 Commit Convention
+## Commit Convention
 
-We use **Conventional Commits**:
+use **Conventional Commits**:
 
 ```
 type(scope): short summary
@@ -50,7 +50,9 @@ type(scope): short summary
 - release  
 - docs  
 - tests  
-- dx  
+- web  
+- all
+- spec
 
 ---
 
@@ -65,9 +67,13 @@ docs(spec): add release model section
 
 ---
 
-## 🔀 Branching Strategy
+## Working Branches
 
-Format:
+The Aperio protocol supports only `main`. Temporary local or PR branches may be used
+as staging while developing this repository, but they must not be modeled as Aperio
+repository branches.
+
+If you use a temporary working branch, use this format:
 
 ```
 type/topic
@@ -84,17 +90,17 @@ docs/cli-spec
 
 ---
 
-## 🔄 Workflow
+## Workflow
 
-1. Create branch
-2. Work locally with meaningful commits
-3. Clean commit history if needed
-4. Open PR (or merge manually)
-5. Squash merge into main
+1. Start from `main`
+2. Use a temporary local or PR branch only if needed
+3. Work locally with meaningful commits
+4. Clean commit history if needed
+5. Merge back into `main`
 
 ---
 
-## 🚫 Rules
+## Rules
 
 - Do NOT mix refactor + feature in one commit  
 - Do NOT include formatting-only changes with logic  
@@ -102,7 +108,7 @@ docs/cli-spec
 
 ---
 
-## 🧪 Testing
+## Testing
 
 - Every feature should include basic tests  
 - Contract logic must be covered  
@@ -110,7 +116,7 @@ docs/cli-spec
 
 ---
 
-## 🎯 Goal
+## Goal
 
 Every commit should:
 - explain itself

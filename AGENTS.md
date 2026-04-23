@@ -1,4 +1,4 @@
-# 🤖 AGENTS.md — Aperio Execution Spec
+# Aperio Execution Spec
 
 ## Purpose
 This file defines **what to build**, **how to build it**, and **what NOT to build** for the Aperio project.
@@ -6,9 +6,9 @@ It is the authoritative guide for the coding agent.
 
 ---
 
-## 🧠 System Overview (Ground Truth)
+## System Overview (Ground Truth)
 
-Aperio is a **censorship-resistant repository registry**.
+Aperio is a **censorship-resistant repository platform**.
 
 - Git → manages code and history (OFF-CHAIN)
 - CLI → orchestrates actions (user interface)
@@ -19,7 +19,7 @@ Aperio is a **censorship-resistant repository registry**.
 
 ---
 
-## 🔒 Core Invariants (DO NOT VIOLATE)
+## Core Invariants (DO NOT VIOLATE)
 
 1. **Single branch only**: `main`
 2. **HEAD = canonical commit**
@@ -29,12 +29,12 @@ Aperio is a **censorship-resistant repository registry**.
 6. **CID identifies stored artifact bytes**
 7. **Releases point to accepted commits only**
 8. **Reviewer NEVER modifies code**
-9. **CLI NEVER holds private keys**
+9. **CLI NEVER holds private keys** // In the ideal case working with the triangle
 10. **On-chain stores pointers, not data**
 
 ---
 
-## 🧩 Data Flow (Authoritative)
+## Data Flow (Authoritative)
 
 ```
 Git → Bundle → Upload → CID → Contract → HEAD
@@ -46,7 +46,7 @@ Git → Bundle → Upload → CID → Contract → HEAD
 
 ---
 
-## 🧑‍🤝‍🧑 Roles (STRICT)
+## Roles (STRICT)
 
 ### Contributor
 - creates commit
@@ -65,18 +65,17 @@ Git → Bundle → Upload → CID → Contract → HEAD
 
 ---
 
-## ❌ Non-Goals (DO NOT IMPLEMENT)
+## Non-Goals (DO NOT IMPLEMENT)
 
 - multi-branch support
 - on-chain merge logic
 - full git server
-- DAO governance
 - CI/CD systems
 - binary release pipelines
 
 ---
 
-## 🏗️ Implementation Priorities
+## Implementation Priorities
 
 ### Phase 1 — Contract
 - repo registry
@@ -104,7 +103,7 @@ Git → Bundle → Upload → CID → Contract → HEAD
 
 ---
 
-## 📦 Artifact Rules
+## Artifact Rules
 
 - use Git bundles
 - prefer full snapshot bundles (MVP)
@@ -113,7 +112,7 @@ Git → Bundle → Upload → CID → Contract → HEAD
 
 ---
 
-## 🔀 Merge Model
+## Merge Model
 
 Two cases:
 
@@ -127,7 +126,7 @@ Two cases:
 
 ---
 
-## 🚀 Release Model
+## Release Model
 
 - release = (version, commit, CID)
 - commit must be canonical
@@ -135,7 +134,7 @@ Two cases:
 
 ---
 
-## 🖥️ CLI Behavior
+## CLI Behavior
 
 CLI must:
 
@@ -147,15 +146,15 @@ CLI must:
 
 ---
 
-## 🔐 Security Rules
+## Security Rules
 
-- no private key storage
+- no private key storage // in the ideal case not the MVP
 - only request signatures
 - all critical actions require confirmation
 
 ---
 
-## 🧠 Coding Rules
+## Coding Rules
 
 ### Commit discipline
 - one logical change per commit
@@ -174,7 +173,7 @@ CLI must:
 
 ---
 
-## ⚠️ Anti-Patterns
+## Anti-Patterns
 
 - storing code on-chain
 - implementing Git logic
@@ -184,7 +183,7 @@ CLI must:
 
 ---
 
-## 🎯 Objective
+## Objective
 
 Build a **minimal, correct, and clean implementation** of:
 
@@ -197,7 +196,7 @@ with:
 
 ---
 
-## 🧠 Final Mental Model
+## Final Mental Model
 
 - Git builds state
 - CLI orchestrates
