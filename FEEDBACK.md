@@ -10,6 +10,8 @@
 
 - It would be REALLY nice to have an XCM course in https://dotcodeschool.com/
 
-## PBP
+- The sandbox environment of Dot.li didn't allow me to put a button to download blobs from Bulletin chain directly and that created some friction for the user. Because they had to use curl in the terminal to download the bundle or copy a link in their browser manuallly.
+
+## PBA - PBP
 
 - Facuty treats everyone equally really well. Asking questions isn't scary.
