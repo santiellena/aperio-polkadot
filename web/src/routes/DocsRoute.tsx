@@ -3,7 +3,7 @@ import { useRepoOverview } from "../features/repo/useRepoOverview";
 import { deriveRepoId, shortenHash } from "../lib/aperio";
 
 const commandBlock =
-	"rounded-xl border border-white/[0.06] bg-black/25 p-4 font-mono text-[12px] text-text-primary overflow-x-auto";
+	"min-w-0 rounded-xl border border-white/[0.06] bg-black/25 p-4 font-mono text-[12px] text-text-primary overflow-x-auto whitespace-pre-wrap break-words";
 const cliOrganization = "aperio";
 const cliRepository = "aperio-cli";
 
@@ -16,6 +16,7 @@ export default function DocsRoute() {
 	} = useRepoOverview(cliOrganization, cliRepository);
 	const latestBundleUrl = cliRepo?.cloneUrl ?? null;
 	const latestCid = cliRepo?.latestCid ?? "";
+	const latestBundleFileName = `${cliOrganization}-${cliRepository}.bundle`;
 	const repoNotCreatedYet =
 		typeof cliRepoError === "string" && cliRepoError.toLowerCase().includes("not found");
 	const cliStatusMessage = cliRepoLoading
@@ -243,8 +244,8 @@ git rev-list --max-count=1 main`}</code>
 				</div>
 			</section>
 
-			<section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-				<div className="card space-y-4">
+			<section className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+				<div className="card min-w-0 space-y-4">
 					<div>
 						<div className="eyebrow">CLI</div>
 						<h2 className="section-title mt-2">Using The Aperio CLI</h2>
@@ -280,15 +281,15 @@ aperio download aperio aperio-cli --out ./aperio-cli
 						</div>
 					</div>
 					<div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 text-sm text-text-secondary">
-						Use the download button in the panel on the right to fetch the latest bundle
+						Use the curl command in the panel on the right to fetch the latest bundle
 						for `aperio/aperio-cli` when it is available on-chain. Inside the standalone
 						CLI repository, the main operator guide is simply `README.md`.
 					</div>
 				</div>
 
-				<div className="card space-y-4">
+				<div className="card min-w-0 space-y-4">
 					<div>
-						<div className="eyebrow">Bundle Download</div>
+						<div className="eyebrow">Bundle Fetch</div>
 						<h2 className="section-title mt-2">
 							Latest Bundle For `aperio/aperio-cli`
 						</h2>
@@ -313,16 +314,11 @@ aperio download aperio aperio-cli --out ./aperio-cli
 							<p className="mt-1 text-sm text-text-secondary">{cliStatusMessage}</p>
 						</div>
 						{latestBundleUrl ? (
-							<a
-								href={latestBundleUrl}
-								target="_blank"
-								rel="noreferrer"
-								className="btn-primary inline-flex w-fit"
-							>
-								Download Latest Bundle
-							</a>
+							<pre className={commandBlock}>
+								<code>{`curl -L "${latestBundleUrl}" -o ${latestBundleFileName}`}</code>
+							</pre>
 						) : (
-							<div className="btn-secondary inline-flex w-fit opacity-60">
+							<div className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-text-secondary">
 								{repoNotCreatedYet
 									? "Repo Not Created Yet"
 									: "Download Unavailable"}

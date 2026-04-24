@@ -58,6 +58,7 @@ export default function RepoRoute() {
 	const recentTimestamp = repo.commitList[0]?.timestamp ?? null;
 	const recentHistory = repo.commitList.slice(0, 3);
 	const mergedCount = Math.max(repo.commitList.length - 1, 0);
+	const bundleFileName = `aperio-${repo.repoId.slice(2, 10)}.bundle`;
 	const recommendedAction = repo.roles.isMaintainer
 		? "Maintain canonical HEAD, manage roles, and merge accepted proposals."
 		: repo.roles.isReviewer
@@ -242,9 +243,9 @@ export default function RepoRoute() {
 					<div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
 						<div>
 							<div className="eyebrow">Artifacts</div>
-							<h2 className="section-title mt-2">Download and reconstruct</h2>
+							<h2 className="section-title mt-2">Fetch and reconstruct</h2>
 							<p className="mt-1 text-sm text-text-secondary">
-								Artifacts are Git bundles. Download the latest CID and reconstruct
+								Artifacts are Git bundles. Fetch the latest CID and reconstruct
 								repository state locally before reviewing or reusing it.
 							</p>
 						</div>
@@ -255,35 +256,25 @@ export default function RepoRoute() {
 
 					{repo.cloneUrl ? (
 						<>
-							<div className="flex flex-col gap-3 lg:flex-row lg:items-start">
-								<a
-									href={repo.cloneUrl}
-									target="_blank"
-									rel="noreferrer"
-									className="btn-primary inline-flex w-fit"
-								>
-									Download Bundle
-								</a>
-								<div className="card-muted flex-1">
-									<div className="panel-label">Resolved bundle URL</div>
-									<div className="mt-2 break-all font-mono text-xs text-text-secondary">
-										{repo.cloneUrl}
-									</div>
+							<div className="card-muted">
+								<div className="panel-label">Resolved bundle URL</div>
+								<div className="mt-2 break-all font-mono text-xs text-text-secondary">
+									{repo.cloneUrl}
 								</div>
 							</div>
 							<CommandBlock
 								command={`# Download the latest canonical bundle
-curl -L ${repo.cloneUrl} -o aperio-${repo.repoId.slice(2, 10)}.bundle
+curl -L ${repo.cloneUrl} -o ${bundleFileName}
 
 # Clone into a fresh repository
-git clone aperio-${repo.repoId.slice(2, 10)}.bundle aperio-${repo.repoId.slice(2, 10)}
+git clone ${bundleFileName} aperio-${repo.repoId.slice(2, 10)}
 cd aperio-${repo.repoId.slice(2, 10)}
 git checkout main
 
 # Or fetch into an existing clone
 cd /path/to/your/existing-repo
-git bundle list-heads ../aperio-${repo.repoId.slice(2, 10)}.bundle
-git fetch ../aperio-${repo.repoId.slice(2, 10)}.bundle main:bundle-main
+git bundle list-heads ../${bundleFileName}
+git fetch ../${bundleFileName} main:bundle-main
 git log bundle-main --oneline`}
 							/>
 						</>

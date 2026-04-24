@@ -243,7 +243,7 @@ export default function RepoProposalsRoute() {
 				</div>
 				{repo.roles.isReviewer && !repo.roles.isMaintainer ? (
 					<div className="rounded-lg border border-blue-500/20 bg-blue-500/10 p-3 text-sm text-text-secondary">
-						You have the reviewer role. Download a proposal bundle, inspect the changes,
+						You have the reviewer role. Fetch a proposal bundle, inspect the changes,
 						then submit your approval or rejection.
 					</div>
 				) : null}
@@ -355,26 +355,20 @@ export default function RepoProposalsRoute() {
 									) : null}
 								</div>
 
-								<div className="flex flex-wrap gap-2">
+								<div className="space-y-3">
 									{bundleUrl ? (
-										<a
-											href={bundleUrl}
-											target="_blank"
-											rel="noreferrer"
-											className="btn-secondary text-sm"
-										>
-											Download Proposed Bundle
-										</a>
+										<BundleCommandBlock
+											label="Fetch proposed bundle"
+											url={bundleUrl}
+											fileName={`proposal-${proposal.id.toString()}.bundle`}
+										/>
 									) : null}
 									{mergedBundleUrl && proposal.status === 3 ? (
-										<a
-											href={mergedBundleUrl}
-											target="_blank"
-											rel="noreferrer"
-											className="btn-secondary text-sm"
-										>
-											Download Merged Bundle
-										</a>
+										<BundleCommandBlock
+											label="Fetch merged bundle"
+											url={mergedBundleUrl}
+											fileName={`proposal-${proposal.id.toString()}-merged.bundle`}
+										/>
 									) : null}
 								</div>
 
@@ -512,6 +506,27 @@ function InfoRow({ label, value, mono = false }: { label: string; value: string;
 			<div className={`mt-1 break-all text-sm text-text-primary ${mono ? "font-mono" : ""}`}>
 				{value || "—"}
 			</div>
+		</div>
+	);
+}
+
+function BundleCommandBlock({
+	label,
+	url,
+	fileName,
+}: {
+	label: string;
+	url: string;
+	fileName: string;
+}) {
+	return (
+		<div className="space-y-2">
+			<div className="text-xs font-medium uppercase tracking-[0.18em] text-text-muted">
+				{label}
+			</div>
+			<pre className="overflow-x-auto rounded-lg border border-white/[0.06] bg-black/20 p-3 text-xs text-text-primary">
+				<code>{`curl -L "${url}" -o ${fileName}`}</code>
+			</pre>
 		</div>
 	);
 }

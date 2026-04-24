@@ -266,19 +266,9 @@ export function MergePanel({
 								</div>
 							</div>
 						</div>
-						{proposedBundleUrl ? (
-							<a
-								href={proposedBundleUrl}
-								target="_blank"
-								rel="noreferrer"
-								className="btn-secondary text-sm inline-flex"
-							>
-								Download Proposed Bundle
-							</a>
-						) : null}
 						<pre className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-xs text-text-primary overflow-x-auto">
 							{[
-								`# Download the proposed bundle`,
+								`# Fetch the proposed bundle`,
 								`curl -L "${proposedBundleUrl ?? `<gateway>/${proposedCid}`}" \\`,
 								`  -o ${shortId}.bundle`,
 								``,
